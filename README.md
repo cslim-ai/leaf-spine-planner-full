@@ -43,7 +43,7 @@ LICENSE
 
 ## 주요 파일
 
-- `assets/js/calculator.js`: Leaf/Spine 수량, 대역폭, oversubscription, multi-planar pod 계산
+- `assets/js/calculator.js`: Leaf/Spine 수량, 대역폭, oversubscription, multi-planar plane 계산
 - `assets/js/diagram.js`: 네트워크 구성도 렌더링 및 SVG/PNG/PPT export
 - `assets/js/report.js`: 리포트 SVG/PDF export
 - `assets/js/portmap.js`: 포트맵 새 창, Excel/PPT export
@@ -63,7 +63,8 @@ LICENSE
 - Oversubscription 구성에서도 서버 NIC는 모두 Leaf에 연결하고, Leaf-Spine 업링크 수와 대역폭을 줄여 목표 비율을 맞춥니다.
 - Twin-port Transceiver를 사용하면 스위치 물리 포트를 논리 포트 2개로 계산합니다.
 - Leaf-Spine 업링크에 Twin-port Transceiver를 사용하지 않는 옵션을 켜면 업링크는 입력된 포트당 링크 스피드를 그대로 사용합니다.
-- Multi-planar Design은 입력한 pod당 서버 수를 기준으로 pod별 Leaf-Spine 구성을 계산한 뒤 전체 pod 수만큼 합산합니다.
+- Multi-planar Design은 서버 NIC 포트를 Twin-port Transceiver로 2개의 논리 링크로 분리하고, 두 링크를 각각 독립된 Leaf-Spine plane에 연결하는 방식으로 계산합니다.
+- Multi-pods Design은 입력한 Pod당 서버 수를 기준으로 서버와 Leaf-Spine fabric을 독립 pod 그룹으로 나누고, 각 pod에 동일한 설계 기준을 적용합니다.
 
 ## 테스트
 

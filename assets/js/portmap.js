@@ -21,7 +21,6 @@ function buildPortMap({ input, best }) {
   const podCount = best.podCount || 1;
   const perPodLeafs = best.perPodLeafs || best.leafCount;
   const perPodSpines = best.perPodSpines || best.spines;
-  const podServerCount = best.podServerCount || input.serverCount;
   const activeNicPorts = activeServerNicPorts(input);
   const serverLeafTwinFactor = input.useTwinPort ? 2 : 1;
   const uplinkTwinFactor = leafSpineTwinFactor(input);
@@ -31,26 +30,27 @@ function buildPortMap({ input, best }) {
   const leafSpineRows = [];
 
   for (let serverIndex = 0; serverIndex < input.serverCount; serverIndex += 1) {
-    const podIndex = input.useMultiPlanar ? Math.floor(serverIndex / podServerCount) : 0;
-    const localServerIndex = input.useMultiPlanar ? serverIndex % podServerCount : serverIndex;
-    for (let nicIndex = 0; nicIndex < activeNicPorts; nicIndex += 1) {
-      const leafIndex = input.useMultiPlanar
-        ? podIndex * perPodLeafs + ((localServerIndex * activeNicPorts + nicIndex) % perPodLeafs)
-        : ((serverIndex * activeNicPorts + nicIndex) % best.leafCount);
-      const leafLogicalPort = leafServerPortCounters[leafIndex];
-      leafServerPortCounters[leafIndex] += 1;
-      serverLeafRows.push({
-        podIndex,
-        pod: podLabel(podIndex, podCount),
-        section: "Server-Leaf",
-        sourceDevice: `Server ${serverIndex + 1}`,
-        sourcePort: `NIC ${nicIndex + 1}`,
-        targetDevice: leafLabel(leafIndex, perPodLeafs, podCount),
-        targetPort: switchDownlinkPortLabel(leafLogicalPort, serverLeafTwinFactor),
-        speed: `${formatGbps(input.serverLinkSpeed)}`,
-        group: `NIC ${nicIndex + 1}`,
-      });
-    }
+    serverFabricGroupIndexes(serverIndex, input, best).forEach((podIndex) => {
+      const localServerIndex = serverLocalIndex(serverIndex, input, best);
+      for (let nicIndex = 0; nicIndex < activeNicPorts; nicIndex += 1) {
+        const leafIndex = podCount > 1
+          ? podIndex * perPodLeafs + ((localServerIndex * activeNicPorts + nicIndex) % perPodLeafs)
+          : ((serverIndex * activeNicPorts + nicIndex) % best.leafCount);
+        const leafLogicalPort = leafServerPortCounters[leafIndex];
+        leafServerPortCounters[leafIndex] += 1;
+        serverLeafRows.push({
+          podIndex,
+          pod: podLabel(podIndex, podCount, input, best),
+          section: "Server-Leaf",
+          sourceDevice: `Server ${serverIndex + 1}`,
+          sourcePort: podCount > 1 ? `NIC ${nicIndex + 1} ${podLabel(podIndex, podCount, input, best)}` : `NIC ${nicIndex + 1}`,
+          targetDevice: leafLabel(leafIndex, perPodLeafs, podCount, input, best),
+          targetPort: switchDownlinkPortLabel(leafLogicalPort, serverLeafTwinFactor),
+          speed: `${formatGbps(input.useMultiPlanar ? input.serverLinkSpeed / (best.planeCount || 2) : input.serverLinkSpeed)}`,
+          group: `NIC ${nicIndex + 1}`,
+        });
+      }
+    });
   }
 
   for (let leafIndex = 0; leafIndex < best.leafCount; leafIndex += 1) {
@@ -65,11 +65,11 @@ function buildPortMap({ input, best }) {
         spinePortCounters[spineIndex] += 1;
         leafSpineRows.push({
           podIndex,
-          pod: podLabel(podIndex, podCount),
+          pod: podLabel(podIndex, podCount, input, best),
           section: "Leaf-Spine",
-          sourceDevice: leafLabel(leafIndex, perPodLeafs, podCount),
+          sourceDevice: leafLabel(leafIndex, perPodLeafs, podCount, input, best),
           sourcePort: switchPortLabel(leafPort - 1, uplinkTwinFactor),
-          targetDevice: spineLabel(spineIndex, perPodSpines, podCount),
+          targetDevice: spineLabel(spineIndex, perPodSpines, podCount, input, best),
           targetPort: switchPortLabel(spinePortCounters[spineIndex] - 1, uplinkTwinFactor),
           speed: `${formatGbps(effectiveSwitchLinkSpeed(input))}`,
           group: `Leaf ${leafIndex + 1}`,
@@ -86,7 +86,7 @@ function buildPortMap({ input, best }) {
       ["Server NIC Ports", input.serverNicPorts.toLocaleString()],
       ["Leaf Switches", best.leafCount.toLocaleString()],
       ["Spine Switches", best.spines.toLocaleString()],
-      ["Pods", podCount.toLocaleString()],
+      [input.useMultiPods && input.useMultiPlanar ? "Pod/Plane Groups" : (input.useMultiPods ? "Pods" : "Planes"), podCount.toLocaleString()],
       ["Total Links", (serverLeafRows.length + leafSpineRows.length).toLocaleString()],
     ],
     serverLeafRows,
@@ -104,18 +104,45 @@ function switchPortLabel(logicalPortIndex, twinFactor) {
   return `Port ${Math.floor(logicalPortIndex / twinFactor) + 1}${lane}`;
 }
 
-function podLabel(podIndex, podCount) {
-  return podCount > 1 ? `Pod ${podIndex + 1}` : "-";
+function podLabel(podIndex, podCount, input = null, best = null) {
+  if (podCount <= 1) return "-";
+  return fabricGroupLabel(podIndex, input, best);
 }
 
-function leafLabel(leafIndex, perPodLeafs, podCount) {
-  if (podCount > 1) return `Pod ${Math.floor(leafIndex / perPodLeafs) + 1} Leaf ${(leafIndex % perPodLeafs) + 1}`;
+function leafLabel(leafIndex, perPodLeafs, podCount, input = null, best = null) {
+  if (podCount > 1) return `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}`;
   return `Leaf ${leafIndex + 1}`;
 }
 
-function spineLabel(spineIndex, perPodSpines, podCount) {
-  if (podCount > 1) return `Pod ${Math.floor(spineIndex / perPodSpines) + 1} Spine ${(spineIndex % perPodSpines) + 1}`;
+function spineLabel(spineIndex, perPodSpines, podCount, input = null, best = null) {
+  if (podCount > 1) return `${fabricGroupLabel(Math.floor(spineIndex / perPodSpines), input, best)} Spine ${(spineIndex % perPodSpines) + 1}`;
   return `Spine ${spineIndex + 1}`;
+}
+
+function fabricGroupLabel(groupIndex, input = null, best = null) {
+  const sourceInput = input || currentResult?.input || {};
+  const sourceBest = best || currentResult?.best || {};
+  const planeCount = sourceBest.planeCount || (sourceInput.useMultiPlanar ? 2 : 1);
+  if (sourceInput.useMultiPods && sourceInput.useMultiPlanar) {
+    return `Pod ${Math.floor(groupIndex / planeCount) + 1} Plane ${(groupIndex % planeCount) + 1}`;
+  }
+  if (sourceInput.useMultiPods) return `Pod ${groupIndex + 1}`;
+  if (sourceInput.useMultiPlanar) return `Plane ${groupIndex + 1}`;
+  return `Group ${groupIndex + 1}`;
+}
+
+function serverFabricGroupIndexes(serverIndex, input, best) {
+  const planeCount = best.planeCount || (input.useMultiPlanar ? 2 : 1);
+  const multiPodCount = best.multiPodCount || (input.useMultiPods ? Math.ceil(input.serverCount / Math.max(1, input.podServerCount || input.serverCount)) : 1);
+  const podServerCount = best.podServerCount || input.serverCount;
+  const podIndex = input.useMultiPods ? Math.min(multiPodCount - 1, Math.floor(serverIndex / podServerCount)) : 0;
+  const planes = input.useMultiPlanar ? planeCount : 1;
+  return Array.from({ length: planes }, (_, planeIndex) => podIndex * planeCount + planeIndex);
+}
+
+function serverLocalIndex(serverIndex, input, best) {
+  const podServerCount = best.podServerCount || input.serverCount;
+  return input.useMultiPods ? serverIndex % podServerCount : serverIndex;
 }
 
 function makePortMapHtml(portMap) {
@@ -356,7 +383,7 @@ function makePortMapHtml(portMap) {
             <tr>
               <th>#</th>
               <th>구간</th>
-              <th>Pod</th>
+              <th>Plane</th>
               <th>출발 장비</th>
               <th>출발 포트</th>
               <th>도착 장비</th>
@@ -515,7 +542,7 @@ function getPortMapRows(portMap) {
 }
 
 function portMapHeaders() {
-  return ["#", "구간", "Pod", "출발 장비", "출발 포트", "도착 장비", "도착 포트", "속도", "그룹"];
+  return ["#", "구간", "Plane", "출발 장비", "출발 포트", "도착 장비", "도착 포트", "속도", "그룹"];
 }
 
 function portMapRowValues(row, index) {

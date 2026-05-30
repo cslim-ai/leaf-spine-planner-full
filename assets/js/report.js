@@ -335,21 +335,27 @@ function getReportInputRows() {
     { label: "서버 NIC 포트 수", value: fields.serverNicPorts.value },
     { label: "서버 NIC 링크 스피드", value: `${fields.serverLinkSpeed.value} Gbps` },
     { type: "section", label: "스위치" },
-    { label: "스위치 포트 수", value: fields.switchPorts.value },
-    { label: "스위치 링크 스피드", value: `${fields.switchLinkSpeed.value} Gbps` },
-    { label: "Twin-port Transceiver", value: fields.useTwinPort.checked ? `${getTwinPortSpeedText()} 사용` : "미사용" },
-    { label: "Leaf-Spine Twin-port", value: fields.useTwinPort.checked && fields.disableUplinkTwinPort.checked ? "미사용" : (fields.useTwinPort.checked ? "사용" : "미사용") },
+    { type: "section", label: "Leaf" },
+    { label: "Leaf당 포트 수", value: fields.switchPorts.value },
+    { label: "Leaf 포트당 링크 스피드", value: `${fields.switchLinkSpeed.value} Gbps` },
+    { label: "Leaf에 Twin-port Transceiver 사용", value: fields.useTwinPort.checked ? `${getTwinPortSpeedText(fields.switchLinkSpeed)} 사용` : "미사용" },
+    { type: "section", label: "Spine" },
+    { label: "Leaf와 사양 같음", value: fields.spineSameAsLeaf.checked ? "사용" : "미사용" },
+    { label: "Spine당 포트 수", value: fields.spineSwitchPorts.value },
+    { label: "Spine 포트당 링크 스피드", value: `${fields.spineSwitchLinkSpeed.value} Gbps` },
+    { label: "Spine에 Twin-port Transceiver 사용", value: fields.spineUseTwinPort.checked ? `${getTwinPortSpeedText(fields.spineSwitchLinkSpeed)} 사용` : "미사용" },
     { type: "section", label: "구성 방식" },
     { label: "Topology", value: getMode() === "oversubscribed" ? "Oversubscribed" : "Non-blocking" },
     { label: "Multi-planar Design", value: fields.useMultiPlanar.checked ? "사용" : "미사용" },
-    ...(fields.useMultiPlanar.checked ? [{ label: "Pod당 서버 수", value: fields.podServerCount.value }] : []),
+    { label: "Multi-pods Design", value: fields.useMultiPods.checked ? "사용" : "미사용" },
+    ...(fields.useMultiPods.checked ? [{ label: "Pod당 서버 수", value: fields.podServerCount.value }] : []),
   ];
 }
 
 function getReportMetrics() {
   return [
-    { label: "Leaf 스위치", value: outputs.leafCount.textContent },
-    { label: "Spine 스위치", value: outputs.spineCount.textContent },
+    { label: "Leaf", value: outputs.leafCount.textContent },
+    { label: "Spine", value: outputs.spineCount.textContent },
     { label: "Oversub 비율", value: outputs.oversubRatio.textContent },
     { label: "총 스위치", value: outputs.totalSwitches.textContent },
   ];

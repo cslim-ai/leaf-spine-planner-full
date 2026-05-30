@@ -1,6 +1,7 @@
 const {
   calculate,
   effectiveSwitchLinkSpeed,
+  leafSpineLeafTwinFactor,
   leafSpineTwinFactor,
 } = require("../assets/js/calculator");
 
@@ -25,6 +26,7 @@ const baseInput = {
   mode: "nonblocking",
   targetOversub: 3,
   useMultiPlanar: false,
+  useMultiPods: false,
   podServerCount: 64,
 };
 
@@ -52,6 +54,49 @@ function withInput(overrides) {
   assertEqual(result.best.leafCount, 8, "leaf count should account for server and uplink logical ports");
   assertEqual(result.best.uplinksPerLeaf, 72, "non-blocking uplinks should match leaf downlink bandwidth");
   assertEqual(result.best.usedPortsPerLeaf, 72, "leaf physical ports should be fully used with twin-port");
+}
+
+{
+  const baseline = calculate(withInput({
+    serverCount: 72,
+    serverLinkSpeed: 800,
+    switchPorts: 72,
+    switchLinkSpeed: 1600,
+    useTwinPort: true,
+    spineUseTwinPort: true,
+  }));
+  const input = withInput({
+    serverCount: 72,
+    serverLinkSpeed: 800,
+    switchPorts: 72,
+    switchLinkSpeed: 1600,
+    useTwinPort: true,
+    spineSwitchPorts: 72,
+    spineSwitchLinkSpeed: 1600,
+    spineUseTwinPort: true,
+  });
+  const result = calculate(input);
+  assert(result.feasible, "separate leaf/spine input should remain feasible when specs match");
+  assertEqual(result.best.leafCount, baseline.best.leafCount, "matching spine specs should preserve leaf count");
+  assertEqual(result.best.spines, baseline.best.spines, "matching spine specs should preserve spine count");
+  assertEqual(result.best.spineSwitchPortCapacity, 72, "spine port capacity should be tracked separately");
+}
+
+{
+  const input = withInput({
+    serverCount: 72,
+    serverLinkSpeed: 800,
+    switchPorts: 72,
+    switchLinkSpeed: 1600,
+    useTwinPort: true,
+    spineSwitchPorts: 36,
+    spineSwitchLinkSpeed: 800,
+    spineUseTwinPort: false,
+  });
+  const result = calculate(input);
+  assert(result.feasible, "smaller spine switches should still be evaluated with separate capacity");
+  assert(result.best.spines > 8, "smaller spine port capacity should require more spine switches");
+  assertEqual(effectiveSwitchLinkSpeed(input), 800, "leaf-spine link speed should use the slower leaf/spine side");
 }
 
 {
@@ -161,45 +206,111 @@ function withInput(overrides) {
 
 {
   const input = withInput({
-    serverCount: 576,
+    serverCount: 64,
     serverLinkSpeed: 800,
     switchPorts: 72,
     switchLinkSpeed: 1600,
-    useTwinPort: true,
+    useTwinPort: false,
+    spineUseTwinPort: false,
     useMultiPlanar: true,
-    podServerCount: 288,
   });
   const result = calculate(input);
-  assert(result.feasible, "multi-planar input should be feasible per pod");
-  assertEqual(result.best.podCount, 2, "pod count should be calculated from server count and pod size");
-  assertEqual(result.best.perPodLeafs, 32, "per-pod leaf count should match single-pod calculation");
-  assertEqual(result.best.perPodSpines, 18, "per-pod spine count should match single-pod calculation");
+  assert(result.feasible, "multi-planar input should be feasible per plane");
+  assertEqual(result.input.useTwinPort, true, "multi-planar should force server-leaf twin-port usage");
+  assertEqual(result.best.podCount, 2, "multi-planar should use two independent planes");
+  assertEqual(result.best.perPodLeafs, 8, "per-plane leaf count should match 64-node reference layout");
+  assertEqual(result.best.perPodSpines, 4, "per-plane spine count should match 64-node reference layout");
+  assertEqual(result.best.leafCount, 16, "total leaf count should be plane count times per-plane leafs");
+  assertEqual(result.best.spines, 8, "total spine count should be plane count times per-plane spines");
 }
 
 {
   const input = withInput({
-    serverCount: 864,
+    serverCount: 576,
     serverLinkSpeed: 800,
     switchPorts: 72,
     switchLinkSpeed: 1600,
-    useTwinPort: true,
+    useTwinPort: false,
+    spineUseTwinPort: false,
     useMultiPlanar: true,
-    podServerCount: 288,
   });
   const result = calculate(input);
-  assert(result.feasible, "three-pod multi-planar input should be feasible");
-  assertEqual(result.best.podCount, 3, "pod count should support more than two pods");
-  assertEqual(result.best.perPodLeafs, 32, "per-pod leaf count should remain stable");
-  assertEqual(result.best.perPodSpines, 18, "per-pod spine count should remain rail-balanced");
-  assertEqual(result.best.leafCount, 96, "total leaf count should be pod count times per-pod leafs");
-  assertEqual(result.best.spines, 54, "total spine count should be pod count times per-pod spines");
+  assert(result.feasible, "larger multi-planar input should be feasible per plane");
+  assertEqual(result.best.podCount, 2, "multi-planar should remain two planes");
+  assertEqual(result.best.perPodLeafs, 48, "per-plane leaf count should scale with the full server set");
+  assertEqual(result.best.perPodSpines, 48, "per-plane spine count should scale with the full server set");
+  assertEqual(result.best.leafCount, 96, "total leaf count should be plane count times per-plane leafs");
+  assertEqual(result.best.spines, 96, "total spine count should be plane count times per-plane spines");
+}
+
+{
+  const input = withInput({
+    serverCount: 128,
+    serverLinkSpeed: 400,
+    switchPorts: 64,
+    switchLinkSpeed: 400,
+    useMultiPods: true,
+    podServerCount: 64,
+  });
+  const result = calculate(input);
+  assert(result.feasible, "multi-pods input should be feasible per pod");
+  assertEqual(result.best.multiPodCount, 2, "pod count should be derived from pod server count");
+  assertEqual(result.best.podServerCount, 64, "pod server count should come from user input");
+  assertEqual(result.best.leafCount, 32, "total leaf count should be pod count times per-pod leafs");
+  assertEqual(result.best.spines, 16, "total spine count should be pod count times per-pod spines");
+}
+
+{
+  const input = withInput({
+    serverCount: 128,
+    serverLinkSpeed: 800,
+    switchPorts: 72,
+    switchLinkSpeed: 1600,
+    useMultiPlanar: true,
+    useMultiPods: true,
+    podServerCount: 64,
+    spineUseTwinPort: false,
+  });
+  const result = calculate(input);
+  assert(result.feasible, "multi-pods and multi-planar should compose");
+  assertEqual(result.best.multiPodCount, 2, "composed design should derive pods from pod server count");
+  assertEqual(result.best.planeCount, 2, "composed design should keep two planes per pod");
+  assertEqual(result.best.podCount, 4, "composed design should have pod count times plane count fabric groups");
+  assertEqual(result.input.useTwinPort, true, "composed design should force twin-port on server links");
 }
 
 {
   const input = withInput({ useTwinPort: true, switchLinkSpeed: 1600 });
   assertEqual(leafSpineTwinFactor(input), 2, "leaf-spine twin factor should use twin-port by default");
+  assertEqual(leafSpineLeafTwinFactor(input), 2, "leaf-side leaf-spine twin factor should use leaf twin-port by default");
   assertEqual(effectiveSwitchLinkSpeed(input), 800, "effective logical link speed should halve with twin-port");
-  assertEqual(leafSpineTwinFactor({ ...input, disableUplinkTwinPort: true }), 1, "uplink disable option should use full-speed single links");
+  assertEqual(leafSpineLeafTwinFactor({ ...input, disableUplinkTwinPort: true }), 1, "uplink disable option should apply to leaf-side ports");
+  assertEqual(leafSpineTwinFactor({ ...input, disableUplinkTwinPort: true }), 1, "uplink disable option should apply to spine-side ports too");
+}
+
+{
+  const input = withInput({
+    switchLinkSpeed: 1600,
+    spineSwitchLinkSpeed: 1600,
+    useTwinPort: true,
+    spineUseTwinPort: false,
+    disableUplinkTwinPort: false,
+  });
+  assertEqual(leafSpineLeafTwinFactor(input), 2, "leaf uplinks should split into two logical links");
+  assertEqual(leafSpineTwinFactor(input), 1, "spine ports should stay unsplit when spine twin-port is disabled");
+  assertEqual(effectiveSwitchLinkSpeed(input), 800, "asymmetric 2:1 leaf-to-spine port mapping should use leaf-side split speed");
+}
+
+{
+  const input = withInput({
+    switchLinkSpeed: 1600,
+    spineSwitchLinkSpeed: 1600,
+    useTwinPort: true,
+    spineUseTwinPort: true,
+    disableUplinkTwinPort: true,
+  });
+  assertEqual(leafSpineLeafTwinFactor(input), 1, "leaf uplink disable should keep leaf ports unsplit");
+  assertEqual(leafSpineTwinFactor(input), 1, "leaf-spine disable should keep spine ports unsplit");
 }
 
 console.log("calculator tests passed");

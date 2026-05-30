@@ -3,10 +3,12 @@ const modeInputs = [...document.querySelectorAll("input[name='topologyMode']")];
 const oversubField = document.querySelector("#oversubField");
 const podField = document.querySelector("#podField");
 const twinPortLabel = document.querySelector("#twinPortLabel");
+const spineTwinPortLabel = document.querySelector("#spineTwinPortLabel");
 const {
   calculate,
   effectiveSwitchLinkSpeed,
   leafSpineTwinFactor,
+  leafSpineLeafTwinFactor,
   calculateCableCounts,
   activeServerNicPorts,
   priorLinksForSpine,
@@ -20,9 +22,14 @@ const fields = {
   switchPorts: document.querySelector("#switchPorts"),
   switchLinkSpeed: document.querySelector("#switchLinkSpeed"),
   useTwinPort: document.querySelector("#useTwinPort"),
+  spineSameAsLeaf: document.querySelector("#spineSameAsLeaf"),
+  spineSwitchPorts: document.querySelector("#spineSwitchPorts"),
+  spineSwitchLinkSpeed: document.querySelector("#spineSwitchLinkSpeed"),
+  spineUseTwinPort: document.querySelector("#spineUseTwinPort"),
   disableUplinkTwinPort: document.querySelector("#disableUplinkTwinPort"),
   targetOversub: document.querySelector("#targetOversub"),
   useMultiPlanar: document.querySelector("#useMultiPlanar"),
+  useMultiPods: document.querySelector("#useMultiPods"),
   podServerCount: document.querySelector("#podServerCount"),
 };
 
@@ -95,6 +102,12 @@ const LEAF_COLORS = [
 
 modeInputs.forEach((input) => input.addEventListener("change", updateMode));
 fields.useMultiPlanar.addEventListener("change", updateMode);
+fields.useMultiPods.addEventListener("change", updateMode);
+fields.spineSameAsLeaf.addEventListener("change", () => {
+  syncSpineSwitchFields();
+  updateTwinPortState();
+  if (form.reportValidity()) render(calculate(readInput()));
+});
 form.addEventListener("submit", (event) => {
   event.preventDefault();
   render(calculate(readInput()));
@@ -197,7 +210,11 @@ function exportDiagramByFormat(format) {
 function updateMode() {
   const mode = getMode();
   oversubField.classList.toggle("hidden", mode !== "oversubscribed");
-  podField.classList.toggle("hidden", !fields.useMultiPlanar.checked);
+  podField.classList.toggle("hidden", !fields.useMultiPods.checked);
+  if (fields.useMultiPlanar.checked) {
+    fields.useTwinPort.checked = true;
+  }
+  updateTwinPortState();
 }
 
 function getMode() {
@@ -211,11 +228,18 @@ function readInput() {
     serverLinkSpeed: toFloat(fields.serverLinkSpeed.value),
     switchPorts: toInt(fields.switchPorts.value),
     switchLinkSpeed: toFloat(fields.switchLinkSpeed.value),
-    useTwinPort: fields.useTwinPort.checked && !fields.useTwinPort.disabled,
+    leafSwitchPorts: toInt(fields.switchPorts.value),
+    leafSwitchLinkSpeed: toFloat(fields.switchLinkSpeed.value),
+    useTwinPort: fields.useMultiPlanar.checked || (fields.useTwinPort.checked && !fields.useTwinPort.disabled),
+    spineSameAsLeaf: fields.spineSameAsLeaf.checked,
+    spineSwitchPorts: toInt(fields.spineSameAsLeaf.checked ? fields.switchPorts.value : fields.spineSwitchPorts.value),
+    spineSwitchLinkSpeed: toFloat(fields.spineSameAsLeaf.checked ? fields.switchLinkSpeed.value : fields.spineSwitchLinkSpeed.value),
+    spineUseTwinPort: fields.spineUseTwinPort.checked && !fields.spineUseTwinPort.disabled,
     disableUplinkTwinPort: fields.disableUplinkTwinPort.checked && !fields.disableUplinkTwinPort.disabled,
     mode: getMode(),
     targetOversub: toFloat(fields.targetOversub.value),
     useMultiPlanar: fields.useMultiPlanar.checked,
+    useMultiPods: fields.useMultiPods.checked,
     podServerCount: toInt(fields.podServerCount.value),
   };
 }
@@ -227,9 +251,14 @@ function resetInputsToDefaults() {
   fields.switchPorts.value = "64";
   fields.switchLinkSpeed.value = "400";
   fields.useTwinPort.checked = false;
+  fields.spineSameAsLeaf.checked = true;
+  fields.spineSwitchPorts.value = "64";
+  fields.spineSwitchLinkSpeed.value = "400";
+  fields.spineUseTwinPort.checked = false;
   fields.disableUplinkTwinPort.checked = false;
   fields.targetOversub.value = "3";
   fields.useMultiPlanar.checked = false;
+  fields.useMultiPods.checked = false;
   fields.podServerCount.value = "64";
   modeInputs.forEach((input) => {
     input.checked = input.value === "nonblocking";
@@ -241,25 +270,51 @@ function resetInputsToDefaults() {
 }
 
 function updateTwinPortState() {
-  const switchSpeed = Number.parseFloat(fields.switchLinkSpeed.value) || 0;
-  const disabled = switchSpeed < 200;
-  fields.useTwinPort.disabled = disabled;
-  if (disabled) fields.useTwinPort.checked = false;
-  fields.useTwinPort.closest("label")?.classList.toggle("is-disabled", disabled);
-  const uplinkOptionDisabled = disabled || !fields.useTwinPort.checked;
+  syncSpineSwitchFields();
+  const leafSpeed = Number.parseFloat(fields.switchLinkSpeed.value) || 0;
+  const leafSpeedTooLow = leafSpeed < 200;
+  const leafTwinDisabled = leafSpeedTooLow || fields.useMultiPlanar.checked;
+  fields.useTwinPort.disabled = leafTwinDisabled;
+  if (fields.useMultiPlanar.checked) fields.useTwinPort.checked = true;
+  else if (leafSpeedTooLow) fields.useTwinPort.checked = false;
+  fields.useTwinPort.closest("label")?.classList.toggle("is-disabled", leafTwinDisabled);
+
+  const uplinkOptionDisabled = leafSpeedTooLow || !fields.useTwinPort.checked;
   fields.disableUplinkTwinPort.disabled = uplinkOptionDisabled;
   if (uplinkOptionDisabled) fields.disableUplinkTwinPort.checked = false;
   fields.disableUplinkTwinPort.closest("label")?.classList.toggle("is-disabled", uplinkOptionDisabled);
+
+  const spineSpeed = Number.parseFloat(fields.spineSwitchLinkSpeed.value) || 0;
+  const spineTwinDisabled = spineSpeed < 200 || fields.disableUplinkTwinPort.checked;
+  fields.spineUseTwinPort.disabled = spineTwinDisabled;
+  if (spineTwinDisabled) fields.spineUseTwinPort.checked = false;
+  fields.spineUseTwinPort.closest("label")?.classList.toggle("is-disabled", spineTwinDisabled);
+
   updateTwinPortLabel();
+}
+
+function syncSpineSwitchFields() {
+  const sameAsLeaf = fields.spineSameAsLeaf.checked;
+  if (sameAsLeaf) {
+    fields.spineSwitchPorts.value = fields.switchPorts.value;
+    fields.spineSwitchLinkSpeed.value = fields.switchLinkSpeed.value;
+  }
+  [fields.spineSwitchPorts, fields.spineSwitchLinkSpeed].forEach((field) => {
+    field.disabled = sameAsLeaf;
+    field.closest("label")?.classList.toggle("is-disabled", sameAsLeaf);
+  });
 }
 
 function updateTwinPortLabel() {
   if (!twinPortLabel) return;
-  twinPortLabel.textContent = `${getTwinPortSpeedText()} Twin-port Transceiver 사용`;
+  twinPortLabel.textContent = `${getTwinPortSpeedText(fields.switchLinkSpeed)} Twin-port Transceiver 사용`;
+  if (spineTwinPortLabel) {
+    spineTwinPortLabel.textContent = `${getTwinPortSpeedText(fields.spineSwitchLinkSpeed)} Twin-port Transceiver 사용`;
+  }
 }
 
-function getTwinPortSpeedText() {
-  const perLaneSpeed = Math.max(1, Number.parseFloat(fields.switchLinkSpeed.value) || 1) / 2;
+function getTwinPortSpeedText(field = fields.switchLinkSpeed) {
+  const perLaneSpeed = Math.max(1, Number.parseFloat(field.value) || 1) / 2;
   return `2x${formatSpeedValue(perLaneSpeed)} Gbps`;
 }
 
@@ -305,22 +360,37 @@ function render(result) {
   const totalSpineUsedPorts = best.usedPortsPerSpine * best.spines;
   const totalSpineUnusedPorts = best.unusedPortsPerSpine * best.spines;
   const serverLeafTwinFactor = input.useTwinPort ? 2 : 1;
+  const leafSpineLeafLinkTwinFactor = leafSpineLeafTwinFactor(input);
   const leafSpineLinkTwinFactor = leafSpineTwinFactor(input);
   const leafServerLinkTransceivers = Math.ceil(best.downlinks / serverLeafTwinFactor);
   const totalLeafServerLinkTransceivers = Math.ceil(result.totalServerLinks / serverLeafTwinFactor);
+  const leafSpineLinkTransceivers = Math.ceil(best.uplinksPerLeaf / leafSpineLeafLinkTwinFactor);
+  const totalLeafSpineLinkTransceivers = Math.ceil(best.totalLeafUplinks / leafSpineLeafLinkTwinFactor);
   const spineLeafLinkTransceivers = Math.ceil(best.logicalLinksPerSpine / leafSpineLinkTwinFactor);
   const totalSpineLeafLinkTransceivers = Math.ceil(best.totalLeafUplinks / leafSpineLinkTwinFactor);
   const serverLeafTransceiverType = input.useTwinPort ? "Twin-port Transceiver 사용" : "일반 Transceiver 사용";
-  const leafSpineTransceiverType = leafSpineLinkTwinFactor > 1 ? "Twin-port Transceiver 사용" : "일반 Transceiver 사용";
+  const leafTwinUsageText = input.useTwinPort
+    ? (input.disableUplinkTwinPort ? "사용, 서버-Leaf 구간만 적용" : "사용, 서버-Leaf 및 Leaf-Spine 구간 적용")
+    : "미사용";
+  const leafUplinkTransceiverType = leafSpineLeafLinkTwinFactor > 1 ? "Twin-port Transceiver 사용" : "일반 Transceiver 사용";
+  const spineTransceiverType = leafSpineLinkTwinFactor > 1 ? "Twin-port Transceiver 사용" : "일반 Transceiver 사용";
+  const spineSwitchPortCapacity = best.spineSwitchPortCapacity || best.switchPortCapacity;
   const leafSpineBalanceText = best.balancedLeafSpineLinks
     ? `균등 (${best.spines}대 Spine에 각 ${best.uplinksPerLeaf / best.spines}개씩 연결)`
     : `불균등 (Spine별 ${Math.floor(best.uplinksPerLeaf / best.spines)}~${Math.ceil(best.uplinksPerLeaf / best.spines)}개 연결)`;
-
+  const groupLabel = input.useMultiPods && input.useMultiPlanar
+    ? "Pod/Plane"
+    : (input.useMultiPods ? "Pod" : "Plane");
   const details = [
-    ...(input.useMultiPlanar ? [
-      ["구성 방식", `Multi-planar design (${best.podCount} pods)`],
-      ["Pod당 서버 수", `${best.podServerCount}대`],
-      ["Pod당 Leaf/Spine", `${best.perPodLeafs} Leaf / ${best.perPodSpines} Spine`],
+    ...((input.useMultiPlanar || input.useMultiPods) ? [
+      ["구성 방식", [
+        input.useMultiPlanar ? "Multi-planar design" : null,
+        input.useMultiPods ? "Multi-pods design" : null,
+      ].filter(Boolean).join(" + ")],
+      ...(input.useMultiPods ? [["Pod 수", `${best.multiPodCount}개`]] : []),
+      ...(input.useMultiPlanar ? [["Plane 수", `${best.planeCount}개`]] : []),
+      [input.useMultiPods ? "Pod당 서버 수" : "Plane당 서버 수", `${best.podServerCount}대`],
+      [`${groupLabel}당 Leaf/Spine`, `${best.perPodLeafs} Leaf / ${best.perPodSpines} Spine`],
       ["separator"],
     ] : []),
     ["서버당 연결 포트", `${input.serverNicPorts.toLocaleString()}개`],
@@ -339,28 +409,31 @@ function render(result) {
     ["Leaf당 총 예비 포트", `${best.unusedPortsPerLeaf.toLocaleString()}개`],
     ["전체 Leaf 총 사용 포트", `${totalLeafUsedPorts.toLocaleString()}개`],
     ["전체 Leaf 총 예비 포트", `${totalLeafUnusedPorts.toLocaleString()}개`],
+    ["Leaf에 Twin-port Transceiver 사용", leafTwinUsageText],
     ["separator"],
     ["Spine당 Leaf 링크", `${best.logicalLinksPerSpine.toLocaleString()}개 (${formatGbps(best.logicalLinksPerSpine * effectiveSwitchLinkSpeed(input))})`],
     ["전체 Spine-Leaf 링크", `${best.totalLeafUplinks.toLocaleString()}개 (${formatGbps(totalLeafSpineUplinkBandwidth)})`],
     ["separator"],
-    ["Spine당 총 사용 포트", `${best.usedPortsPerSpine.toLocaleString()}/${best.switchPortCapacity.toLocaleString()}개 (논리 ${best.logicalLinksPerSpine.toLocaleString()}개)`],
+    ["Spine당 총 사용 포트", `${best.usedPortsPerSpine.toLocaleString()}/${spineSwitchPortCapacity.toLocaleString()}개 (논리 ${best.logicalLinksPerSpine.toLocaleString()}개)`],
     ["Spine당 총 예비 포트", `${best.unusedPortsPerSpine.toLocaleString()}개`],
     ["전체 Spine 총 사용 포트", `${totalSpineUsedPorts.toLocaleString()}개`],
     ["전체 Spine 총 예비 포트", `${totalSpineUnusedPorts.toLocaleString()}개`],
+    ["Spine에 Twin-port Transceiver 사용", input.spineUseTwinPort ? "사용, Leaf-Spine 구간 적용" : "미사용"],
     ["separator"],
     ["Leaf-Spine 연결 방식", `Leaf당 ${best.spines}대 Spine에 총 ${best.uplinksPerLeaf}개 업링크 분산`],
     ["Leaf-Spine 링크 균등 여부", leafSpineBalanceText],
-    ["Twin-port Transceiver 사용", input.useTwinPort ? "사용, 서버-Leaf 구간 적용" : "미사용"],
-    ["Leaf-Spine 링크에 Twin-port Transceiver 사용", input.useTwinPort && input.disableUplinkTwinPort ? "미사용, 업링크 포트 속도 온전히 사용" : (input.useTwinPort ? "사용" : "미사용")],
     ["separator"],
     ["Leaf당 서버 링크 Transceiver", `${leafServerLinkTransceivers.toLocaleString()}개 (${serverLeafTransceiverType})`],
     ["Leaf당 서버 링크 케이블", `${best.downlinks.toLocaleString()}개`],
     ["전체 Leaf-서버 링크 Transceiver", `${totalLeafServerLinkTransceivers.toLocaleString()}개 (${serverLeafTransceiverType})`],
     ["전체 Leaf-서버 링크 케이블", `${result.totalServerLinks.toLocaleString()}개`],
     ["separator"],
-    ["Spine당 Leaf 링크 Transceiver", `${spineLeafLinkTransceivers.toLocaleString()}개 (${leafSpineTransceiverType})`],
+    ["Leaf당 Spine 링크 Transceiver", `${leafSpineLinkTransceivers.toLocaleString()}개 (${leafUplinkTransceiverType})`],
+    ["전체 Leaf-Spine 링크 Transceiver", `${totalLeafSpineLinkTransceivers.toLocaleString()}개 (${leafUplinkTransceiverType})`],
+    ["separator"],
+    ["Spine당 Leaf 링크 Transceiver", `${spineLeafLinkTransceivers.toLocaleString()}개 (${spineTransceiverType})`],
     ["Spine당 Leaf 링크 케이블", `${best.logicalLinksPerSpine.toLocaleString()}개`],
-    ["전체 Spine-Leaf 링크 Transceiver", `${totalSpineLeafLinkTransceivers.toLocaleString()}개 (${leafSpineTransceiverType})`],
+    ["전체 Spine-Leaf 링크 Transceiver", `${totalSpineLeafLinkTransceivers.toLocaleString()}개 (${spineTransceiverType})`],
     ["전체 Spine-Leaf 링크 케이블", `${best.totalLeafUplinks.toLocaleString()}개`],
     ["separator"],
   ];
@@ -587,15 +660,21 @@ function pad2(value) {
 
 function makeMessage({ input, best }) {
   const parts = [];
-  if (input.useMultiPlanar) {
-    parts.push(`Multi-planar design으로 ${best.podCount}개의 독립 Leaf-Spine pod를 계산했습니다. 각 pod는 선택한 ${input.mode === "oversubscribed" ? "oversubscribed" : "non-blocking"} 조건을 그대로 적용합니다.`);
+  if (input.useMultiPlanar || input.useMultiPods) {
+    if (input.useMultiPods) {
+      parts.push(`Multi-pods design으로 Pod당 ${best.podServerCount}대 기준 ${best.multiPodCount}개의 독립 pod를 계산했습니다.`);
+    }
+    if (input.useMultiPlanar) {
+      parts.push("Multi-planar design으로 각 pod 또는 전체 fabric을 2개의 독립 plane으로 구성했습니다. 서버 NIC 포트는 Twin-port Transceiver로 논리 분리되어 각 plane에 연결됩니다.");
+    }
   } else if (input.mode === "nonblocking") {
     parts.push("Non-blocking 조건으로 Leaf의 업링크 대역폭이 다운링크 대역폭 이상이 되도록 계산했습니다.");
   } else {
     parts.push(`목표 1:${trim(input.targetOversub)} 이하에서 스위치 수가 가장 적은 oversubscribed 구성을 선택했습니다.`);
   }
-  if (input.serverLinkSpeed > effectiveSwitchLinkSpeed(input)) {
-    parts.push("서버 링크 스피드가 스위치 포트 스피드보다 높아 실제 구성에서는 포트 호환성을 별도로 확인해야 합니다.");
+  const leafPortSpeed = input.leafSwitchLinkSpeed || input.switchLinkSpeed;
+  if (input.serverLinkSpeed > leafPortSpeed) {
+    parts.push("서버 링크 스피드가 Leaf 스위치 포트 스피드보다 높아 실제 구성에서는 포트 호환성을 별도로 확인해야 합니다.");
   }
   if (best.leafCount === best.switchPortCapacity) {
     parts.push("Spine 포트가 모두 Leaf 연결에 사용되므로 확장 여유가 거의 없습니다.");

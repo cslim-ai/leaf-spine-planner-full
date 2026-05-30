@@ -1000,7 +1000,7 @@ function getPptDiagramGeometry({ input, best }) {
   const serverPositions = makePptRowPositions(shownServers, serverPerRow, center, serverStartY, serverRowGap, serverGap);
 
   spinePositions.forEach((position, index) => {
-    const label = podCount > 1 ? `Pod ${Math.floor(index / perPodSpines) + 1} Spine ${(index % perPodSpines) + 1}` : `Spine ${index + 1}`;
+    const label = podCount > 1 ? `${fabricGroupLabel(index, input, best)} Spine ${(index % perPodSpines) + 1}` : `Spine ${index + 1}`;
     switches.push({ kind: "spine", x: position.x, y: position.y, w: switchW, h: switchH, label });
   });
 
@@ -1023,7 +1023,7 @@ function getPptDiagramGeometry({ input, best }) {
         });
       }
     });
-    const label = podCount > 1 ? `Pod ${Math.floor(leafIndex / perPodLeafs) + 1} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`;
+    const label = podCount > 1 ? `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`;
     switches.push({ kind: "leaf", x: leafPosition.x, y: leafPosition.y, w: switchW, h: switchH, label });
   });
 
@@ -1031,21 +1031,24 @@ function getPptDiagramGeometry({ input, best }) {
     const nicLeafStart = (serverIndex * activeNicPorts) % best.leafCount;
     const ports = [];
     for (let nicIndex = 0; nicIndex < activeNicPorts; nicIndex += 1) {
-      const leafIndex = podCount > 1
-        ? Math.floor(serverIndex / podServerCount) * perPodLeafs + (((serverIndex % podServerCount) * activeNicPorts + nicIndex) % perPodLeafs)
-        : (nicLeafStart + nicIndex) % shownLeafs;
-      const leafPosition = leafPositions[leafIndex];
       const nicX = nicPortX(serverPosition.x, serverW, input.serverNicPorts, nicIndex);
       const color = nicColor(nicIndex);
       ports.push({ x: nicX, y: serverPosition.y - serverH / 2 + 7, color });
-      lines.push({
-        x1: nicX,
-        y1: serverPosition.y - serverH / 2,
-        x2: leafPosition.x,
-        y2: leafPosition.y + switchH / 2,
-        color,
-        kind: "link",
-        title: `Server NIC ${nicIndex + 1}`,
+      serverFabricGroupIndexes(serverIndex, input, best).forEach((groupIndex) => {
+        const localServerIndex = serverLocalIndex(serverIndex, input, best);
+        const leafIndex = podCount > 1
+          ? groupIndex * perPodLeafs + ((localServerIndex * activeNicPorts + nicIndex) % perPodLeafs)
+          : (nicLeafStart + nicIndex) % shownLeafs;
+        const leafPosition = leafPositions[leafIndex];
+        lines.push({
+          x1: nicX,
+          y1: serverPosition.y - serverH / 2,
+          x2: leafPosition.x,
+          y2: leafPosition.y + switchH / 2,
+          color,
+          kind: "link",
+          title: podCount > 1 ? `Server NIC ${nicIndex + 1} ${fabricGroupLabel(groupIndex, input, best)}` : `Server NIC ${nicIndex + 1}`,
+        });
       });
     }
     servers.push({ x: serverPosition.x, y: serverPosition.y, w: serverW, h: serverH, number: serverIndex + 1, nicCount: input.serverNicPorts, label: `Server #${serverIndex + 1}`, ports });
@@ -1115,7 +1118,7 @@ function getSummaryDiagramGeometry({ input, best }) {
       ellipsis.push({ x: position.x, y: position.y, w: switchEllipsisW, h: 34, label: summaryHiddenLabel(entry, "Spine") });
       return;
     }
-    const label = podCount > 1 ? `Pod ${Math.floor(entry.index / perPodSpines) + 1} Spine ${(entry.index % perPodSpines) + 1}` : `Spine ${entry.index + 1}`;
+    const label = podCount > 1 ? `${fabricGroupLabel(Math.floor(entry.index / perPodSpines), input, best)} Spine ${(entry.index % perPodSpines) + 1}` : `Spine ${entry.index + 1}`;
     switches.push({ kind: "spine", x: position.x, y: position.y, w: switchW, h: switchH, label });
   });
 
@@ -1125,7 +1128,7 @@ function getSummaryDiagramGeometry({ input, best }) {
       ellipsis.push({ x: position.x, y: position.y, w: switchEllipsisW, h: 34, label: summaryHiddenLabel(entry, "Leaf") });
       return;
     }
-    const label = podCount > 1 ? `Pod ${Math.floor(entry.index / perPodLeafs) + 1} Leaf ${(entry.index % perPodLeafs) + 1}` : `Leaf ${entry.index + 1}`;
+    const label = podCount > 1 ? `${fabricGroupLabel(Math.floor(entry.index / perPodLeafs), input, best)} Leaf ${(entry.index % perPodLeafs) + 1}` : `Leaf ${entry.index + 1}`;
     switches.push({ kind: "leaf", x: position.x, y: position.y, w: switchW, h: switchH, label });
   });
 
@@ -1160,28 +1163,31 @@ function getSummaryDiagramGeometry({ input, best }) {
     const ports = [];
     const nicLeafStart = (entry.index * activeNicPorts) % best.leafCount;
     for (let nicIndex = 0; nicIndex < activeNicPorts; nicIndex += 1) {
-      const leafIndex = podCount > 1
-        ? Math.floor(entry.index / podServerCount) * perPodLeafs + (((entry.index % podServerCount) * activeNicPorts + nicIndex) % perPodLeafs)
-        : (nicLeafStart + nicIndex) % best.leafCount;
-      const leafEntry = leafEntries.find((item) => item.type === "node" && item.index === leafIndex);
-      const fallbackLeafEntry = leafEntries.find((item) => {
-        if (item.type !== "ellipsis") return false;
-        return leafIndex >= item.rangeStart && leafIndex <= item.rangeEnd;
-      }) || leafEntries.find((item) => item.type === "ellipsis");
       const nicX = nicPortX(position.x, serverW, input.serverNicPorts, nicIndex);
       const color = nicColor(nicIndex);
       ports.push({ x: nicX, y: serverY - serverH / 2 + 7, color });
-      const linkLeafEntry = leafEntry || fallbackLeafEntry;
-      if (!linkLeafEntry) continue;
-      const leafPosition = leafPositions.get(linkLeafEntry.key);
-      lines.push({
-        x1: nicX,
-        y1: serverY - serverH / 2,
-        x2: leafPosition.x,
-        y2: leafY + switchH / 2,
-        color,
-        kind: "link",
-        title: `Server NIC ${nicIndex + 1}`,
+      serverFabricGroupIndexes(entry.index, input, best).forEach((groupIndex) => {
+        const localServerIndex = serverLocalIndex(entry.index, input, best);
+        const leafIndex = podCount > 1
+          ? groupIndex * perPodLeafs + ((localServerIndex * activeNicPorts + nicIndex) % perPodLeafs)
+          : (nicLeafStart + nicIndex) % best.leafCount;
+        const leafEntry = leafEntries.find((item) => item.type === "node" && item.index === leafIndex);
+        const fallbackLeafEntry = leafEntries.find((item) => {
+          if (item.type !== "ellipsis") return false;
+          return leafIndex >= item.rangeStart && leafIndex <= item.rangeEnd;
+        }) || leafEntries.find((item) => item.type === "ellipsis");
+        const linkLeafEntry = leafEntry || fallbackLeafEntry;
+        if (!linkLeafEntry) return;
+        const leafPosition = leafPositions.get(linkLeafEntry.key);
+        lines.push({
+          x1: nicX,
+          y1: serverY - serverH / 2,
+          x2: leafPosition.x,
+          y2: leafY + switchH / 2,
+          color,
+          kind: "link",
+          title: podCount > 1 ? `Server NIC ${nicIndex + 1} ${fabricGroupLabel(groupIndex, input, best)}` : `Server NIC ${nicIndex + 1}`,
+        });
       });
     }
     servers.push({ x: position.x, y: position.y, w: serverW, h: serverH, number: entry.index + 1, nicCount: input.serverNicPorts, label: `Server #${entry.index + 1}`, ports });
@@ -1359,10 +1365,34 @@ function shiftGeometryX(geometry, shift) {
 
 function summaryHiddenLabel(entry, label) {
   if (entry.podEllipsis) {
-    return `${entry.hiddenPodCount} Pods hidden`;
+    return `${entry.hiddenPodCount} Groups hidden`;
   }
-  const podPrefix = entry.podIndex === undefined ? "" : `Pod ${entry.podIndex + 1} `;
+  const podPrefix = entry.podIndex === undefined ? "" : `Group ${entry.podIndex + 1} `;
   return `${podPrefix}${entry.hiddenCount} ${label} hidden`;
+}
+
+function fabricGroupLabel(groupIndex, input, best) {
+  const planeCount = best.planeCount || (input.useMultiPlanar ? 2 : 1);
+  if (input.useMultiPods && input.useMultiPlanar) {
+    return `Pod ${Math.floor(groupIndex / planeCount) + 1} Plane ${(groupIndex % planeCount) + 1}`;
+  }
+  if (input.useMultiPods) return `Pod ${groupIndex + 1}`;
+  if (input.useMultiPlanar) return `Plane ${groupIndex + 1}`;
+  return "";
+}
+
+function serverFabricGroupIndexes(serverIndex, input, best) {
+  const planeCount = best.planeCount || (input.useMultiPlanar ? 2 : 1);
+  const multiPodCount = best.multiPodCount || (input.useMultiPods ? Math.ceil(input.serverCount / Math.max(1, input.podServerCount || input.serverCount)) : 1);
+  const podServerCount = best.podServerCount || input.serverCount;
+  const podIndex = input.useMultiPods ? Math.min(multiPodCount - 1, Math.floor(serverIndex / podServerCount)) : 0;
+  const planes = input.useMultiPlanar ? planeCount : 1;
+  return Array.from({ length: planes }, (_, planeIndex) => podIndex * planeCount + planeIndex);
+}
+
+function serverLocalIndex(serverIndex, input, best) {
+  const podServerCount = best.podServerCount || input.serverCount;
+  return input.useMultiPods ? serverIndex % podServerCount : serverIndex;
 }
 
 function summarySwitchWidth(best, podCount) {
@@ -1714,7 +1744,7 @@ function getDiagramGeometry({ input, best }) {
   const servers = [];
 
   spineXs.forEach((x, index) => {
-    const label = podCount > 1 ? `Pod ${Math.floor(index / perPodSpines) + 1} Spine ${(index % perPodSpines) + 1}` : `Spine ${index + 1}`;
+    const label = podCount > 1 ? `${fabricGroupLabel(Math.floor(index / perPodSpines), input, best)} Spine ${(index % perPodSpines) + 1}` : `Spine ${index + 1}`;
     switches.push({ kind: "spine", x, y: spineY, w: switchW, h: switchH, label });
   });
   leafXs.forEach((leafX, leafIndex) => {
@@ -1736,7 +1766,7 @@ function getDiagramGeometry({ input, best }) {
         });
       }
     });
-    const label = podCount > 1 ? `Pod ${Math.floor(leafIndex / perPodLeafs) + 1} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`;
+    const label = podCount > 1 ? `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`;
     switches.push({ kind: "leaf", x: leafX, y: leafY, w: switchW, h: switchH, label });
   });
 
@@ -1744,20 +1774,23 @@ function getDiagramGeometry({ input, best }) {
     const nicLeafStart = (serverIndex * activeNicPorts) % best.leafCount;
     const ports = [];
     for (let nicIndex = 0; nicIndex < activeNicPorts; nicIndex += 1) {
-      const leafIndex = podCount > 1
-        ? Math.floor(serverIndex / podServerCount) * perPodLeafs + (((serverIndex % podServerCount) * activeNicPorts + nicIndex) % perPodLeafs)
-        : (nicLeafStart + nicIndex) % shownLeafs;
       const nicX = nicPortX(serverX, serverW, input.serverNicPorts, nicIndex);
       const color = nicColor(nicIndex);
       ports.push({ x: nicX, y: serverY - serverH / 2 + 7, color });
-      lines.push({
-        x1: nicX,
-        y1: serverY - serverH / 2,
-        x2: leafXs[leafIndex],
-        y2: leafY + switchH / 2,
-        color,
-        kind: "link",
-        title: `Server NIC ${nicIndex + 1}`,
+      serverFabricGroupIndexes(serverIndex, input, best).forEach((groupIndex) => {
+        const localServerIndex = serverLocalIndex(serverIndex, input, best);
+        const leafIndex = podCount > 1
+          ? groupIndex * perPodLeafs + ((localServerIndex * activeNicPorts + nicIndex) % perPodLeafs)
+          : (nicLeafStart + nicIndex) % shownLeafs;
+        lines.push({
+          x1: nicX,
+          y1: serverY - serverH / 2,
+          x2: leafXs[leafIndex],
+          y2: leafY + switchH / 2,
+          color,
+          kind: "link",
+          title: podCount > 1 ? `Server NIC ${nicIndex + 1} ${fabricGroupLabel(groupIndex, input, best)}` : `Server NIC ${nicIndex + 1}`,
+        });
       });
     }
     servers.push({ x: serverX, y: serverY, w: serverW, h: serverH, number: serverIndex + 1, nicCount: input.serverNicPorts, label: `Server #${serverIndex + 1}`, ports });

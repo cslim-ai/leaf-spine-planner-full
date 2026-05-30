@@ -36,12 +36,13 @@
           </label>
 
           <div class="section-title">스위치</div>
+          <div class="subsection-title">Leaf</div>
           <label>
-            <span>스위치 포트 수</span>
+            <span>Leaf당 포트 수</span>
             <input id="switchPorts" type="number" min="2" step="1" value="64" required />
           </label>
           <label>
-            <span>스위치 포트당 링크 스피드</span>
+            <span>Leaf 포트당 링크 스피드</span>
             <div class="inline-field">
               <input id="switchLinkSpeed" type="number" min="1" step="1" value="400" required />
               <span>Gbps</span>
@@ -53,7 +54,28 @@
           </label>
           <label class="check-row sub-check-row">
             <input id="disableUplinkTwinPort" type="checkbox" />
-            <span>Leaf-Spine 업링크에 Twin-port Transceiver 사용안함</span>
+            <span>Leaf-Spine 링크에 Twin-port Transceiver 사용안함</span>
+          </label>
+
+          <div class="subsection-title">Spine</div>
+          <label class="check-row">
+            <input id="spineSameAsLeaf" type="checkbox" checked />
+            <span>Leaf와 사양 같음</span>
+          </label>
+          <label>
+            <span>Spine당 포트 수</span>
+            <input id="spineSwitchPorts" type="number" min="2" step="1" value="64" required disabled />
+          </label>
+          <label>
+            <span>Spine 포트당 링크 스피드</span>
+            <div class="inline-field">
+              <input id="spineSwitchLinkSpeed" type="number" min="1" step="1" value="400" required disabled />
+              <span>Gbps</span>
+            </div>
+          </label>
+          <label class="check-row">
+            <input id="spineUseTwinPort" type="checkbox" />
+            <span id="spineTwinPortLabel">2x200 Twin-port Transceiver 사용</span>
           </label>
 
           <div class="section-title">구성 방식</div>
@@ -89,6 +111,10 @@
             <input id="useMultiPlanar" type="checkbox" />
             <span>Multi-planar Design 사용</span>
           </label>
+          <label class="check-row">
+            <input id="useMultiPods" type="checkbox" />
+            <span>Multi-pods Design 사용</span>
+          </label>
           <label id="podField" class="hidden">
             <span>Pod당 서버 수</span>
             <input id="podServerCount" type="number" min="1" step="1" value="64" />
@@ -98,11 +124,11 @@
         <section class="results">
           <div class="summary-grid">
             <article class="metric">
-              <span>Leaf 스위치</span>
+              <span>Leaf</span>
               <strong id="leafCount">-</strong>
             </article>
             <article class="metric">
-              <span>Spine 스위치</span>
+              <span>Spine</span>
               <strong id="spineCount">-</strong>
             </article>
             <article class="metric">
