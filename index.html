@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Leaf-Spine 설계 계산기</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="workspace">
+        <form class="panel inputs" id="networkForm">
+          <div class="panel-header">
+            <div class="title-lockup">
+              <p class="eyebrow">Leaf-Spine Planner</p>
+              <span class="title-credit">Created by 임채성</span>
+            </div>
+          </div>
+
+          <div class="section-title">서버</div>
+          <label>
+            <span>서버 대수</span>
+            <input id="serverCount" type="number" min="1" step="1" value="8" required />
+          </label>
+          <label>
+            <span>서버 NIC 포트 수</span>
+            <input id="serverNicPorts" type="number" min="1" step="1" value="8" required />
+          </label>
+          <label>
+            <span>서버 NIC 포트당 링크 스피드</span>
+            <div class="inline-field">
+              <input id="serverLinkSpeed" type="number" min="1" step="1" value="400" required />
+              <span>Gbps</span>
+            </div>
+          </label>
+
+          <div class="section-title">스위치</div>
+          <label>
+            <span>스위치 포트 수</span>
+            <input id="switchPorts" type="number" min="2" step="1" value="64" required />
+          </label>
+          <label>
+            <span>스위치 포트당 링크 스피드</span>
+            <div class="inline-field">
+              <input id="switchLinkSpeed" type="number" min="1" step="1" value="400" required />
+              <span>Gbps</span>
+            </div>
+          </label>
+          <label class="check-row">
+            <input id="useTwinPort" type="checkbox" />
+            <span id="twinPortLabel">2x200 Twin-port Transceiver 사용</span>
+          </label>
+          <label class="check-row sub-check-row">
+            <input id="disableUplinkTwinPort" type="checkbox" />
+            <span>Leaf-Spine 업링크에 Twin-port Transceiver 사용안함</span>
+          </label>
+
+          <div class="section-title">구성 방식</div>
+          <div class="segmented" role="radiogroup" aria-label="구성 방식">
+            <label>
+              <input type="radio" name="topologyMode" value="nonblocking" checked />
+              <span>Non-blocking</span>
+            </label>
+            <label>
+              <input type="radio" name="topologyMode" value="oversubscribed" />
+              <span>Oversubscribed</span>
+            </label>
+          </div>
+          <label id="oversubField" class="hidden">
+            <span>목표 Oversub 비율</span>
+            <div class="inline-field">
+              <span>1 :</span>
+              <input id="targetOversub" type="number" min="1.1" step="0.1" value="3" />
+            </div>
+          </label>
+
+          <button type="submit">계산하기</button>
+          <button id="exportPdf" class="save-report" type="button">저장하기</button>
+          <button id="resetInputs" class="reset-inputs" type="button">초기화</button>
+          <label class="check-row">
+            <input id="useMultiPlanar" type="checkbox" />
+            <span>Multi-planar Design 사용</span>
+          </label>
+          <label id="podField" class="hidden">
+            <span>Pod당 서버 수</span>
+            <input id="podServerCount" type="number" min="1" step="1" value="64" />
+          </label>
+        </form>
+
+        <section class="results">
+          <div class="summary-grid">
+            <article class="metric">
+              <span>Leaf 스위치</span>
+              <strong id="leafCount">-</strong>
+            </article>
+            <article class="metric">
+              <span>Spine 스위치</span>
+              <strong id="spineCount">-</strong>
+            </article>
+            <article class="metric">
+              <span>Oversub 비율</span>
+              <strong id="oversubRatio">-</strong>
+            </article>
+            <article class="metric">
+              <span>총 스위치</span>
+              <strong id="totalSwitches">-</strong>
+            </article>
+          </div>
+
+          <article class="panel detail">
+            <div class="detail-title">
+              <h2>계산 결과</h2>
+              <span id="calculationStatus" class="status-badge hidden">구성 불가</span>
+            </div>
+            <dl id="detailList"></dl>
+            <p id="message" class="message"></p>
+          </article>
+
+          <article class="panel diagram-panel">
+            <div class="diagram-title">
+              <div class="diagram-heading">
+                <h2>네트워크 구성도</h2>
+                <button id="openDiagramWindow" class="icon-button" type="button" title="새 창에서 보기" aria-label="새 창에서 보기">↗</button>
+              </div>
+              <div class="diagram-actions">
+                <span id="diagramCaption">입력 후 구성이 표시됩니다</span>
+                <div class="view-controls" aria-label="구성도 보기 방식">
+                  <button id="viewFull" type="button" data-view="full">전체</button>
+                  <button id="viewWrapped" type="button" data-view="wrapped">줄바꿈</button>
+                  <button id="viewSummary" type="button" data-view="summary">요약</button>
+                </div>
+                <div class="zoom-controls" aria-label="구성도 확대 축소">
+                  <button id="zoomOut" type="button" title="축소">-</button>
+                  <button id="zoomReset" type="button" title="원래 크기">100%</button>
+                  <button id="zoomIn" type="button" title="확대">+</button>
+                  <button id="zoomCenter" type="button" title="가운데 정렬" aria-label="가운데 정렬">◎</button>
+                  <button id="zoomFit" type="button" title="화면에 맞춤" aria-label="화면에 맞춤">▣</button>
+                </div>
+                <div class="export-controls" aria-label="구성도 다운로드">
+                  <button id="exportSvg" type="button">SVG</button>
+                  <button id="exportPng" type="button">PNG</button>
+                  <button id="exportPptx" type="button">PPT</button>
+                  <button id="openPortMapWindow" type="button">Port Map</button>
+                </div>
+              </div>
+            </div>
+            <div id="diagram" class="diagram" aria-label="Leaf-Spine topology diagram"></div>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
