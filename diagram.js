@@ -1,4 +1,4 @@
-// Diagram rendering, topology window, and topology PowerPoint export helpers.
+﻿// Diagram rendering, topology window, and topology PowerPoint export helpers.
 // This file is loaded before app.js; functions use app globals at call time.
 
 function makeDiagram({ input, best }) {
@@ -168,12 +168,13 @@ function openDiagramWindow() {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Leaf-Spine 구성도</title>
     <style>
+      ${makeEmbeddedPretendardFontCss()}
       * { box-sizing: border-box; }
       body {
         margin: 0;
         min-height: 100vh;
         background: #eef5ff;
-        font-family: "Segoe UI", "Noto Sans KR", Arial, sans-serif;
+        font-family: "Pretendard", Arial, sans-serif;
       }
       .toolbar {
         position: sticky;
@@ -189,23 +190,71 @@ function openDiagramWindow() {
       }
       .actions {
         display: flex;
-        gap: 6px;
+        gap: 16px;
         align-items: center;
         flex-wrap: wrap;
       }
+      .control-group {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+      }
       button {
-        min-height: 30px;
-        min-width: 42px;
+        min-height: 28px;
+        padding: 0;
         border: 1px solid #c8d8ee;
         border-radius: 6px;
         background: #fff;
         color: #1d4ed8;
         font: inherit;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 900;
         cursor: pointer;
       }
       button:hover { background: #dbeafe; }
+      #viewFull,
+      #viewSummary {
+        width: 48px;
+      }
+      #viewWrapped {
+        width: 62px;
+      }
+      #zoomOut,
+      #zoomIn,
+      #zoomCenter,
+      #zoomFit {
+        width: 36px;
+      }
+      #zoomReset {
+        width: 64px;
+      }
+      #downloadMenu,
+      #downloadExport {
+        width: 72px;
+      }
+      #openPortMap {
+        width: 72px;
+      }
+      #downloadExport,
+      #openPortMap {
+        border-color: #2563eb;
+        background: #2563eb;
+        color: #fff;
+      }
+      #downloadExport:hover,
+      #openPortMap:hover {
+        border-color: #1d4ed8;
+        background: #1d4ed8;
+      }
+      #zoomOut,
+      #zoomIn,
+      #zoomCenter,
+      #zoomFit {
+        font-size: 16px;
+      }
+      #zoomReset {
+        font-size: 12px;
+      }
       button.is-active {
         background: #2563eb;
         border-color: #2563eb;
@@ -213,7 +262,7 @@ function openDiagramWindow() {
       }
       .toolbar strong {
         color: #0f172a;
-        font-size: 16px;
+        font-size: 20px;
       }
       .viewer {
         width: 100vw;
@@ -235,24 +284,64 @@ function openDiagramWindow() {
         max-width: none;
         background: #f8fbff;
       }
+      .export-menu {
+        position: relative;
+      }
+      .export-menu-list {
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        z-index: 5;
+        display: none;
+        min-width: 78px;
+        padding: 6px;
+        border: 1px solid #c8d8ee;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16);
+      }
+      .export-menu.is-open .export-menu-list {
+        display: grid;
+        gap: 4px;
+      }
+      .export-menu-list button {
+        width: 100%;
+        min-height: 28px;
+        border: 0;
+        padding: 0 10px;
+        text-align: left;
+        font-size: 12px;
+        font-weight: 900;
+      }
     </style>
   </head>
   <body>
     <div class="toolbar">
       <strong>네트워크 구성도</strong>
       <div class="actions">
-        <button id="viewFull" type="button">전체</button>
-        <button id="viewWrapped" type="button">줄바꿈</button>
-        <button id="viewSummary" type="button">요약</button>
-        <button id="zoomOut" type="button">-</button>
-        <button id="zoomReset" type="button">100%</button>
-        <button id="zoomIn" type="button">+</button>
-        <button id="zoomCenter" type="button" title="가운데 정렬" aria-label="가운데 정렬">⨁</button>
-        <button id="zoomFit" type="button" title="화면에 맞춤" aria-label="화면에 맞춤">⇔</button>
-        <button id="downloadSvg" type="button">SVG</button>
-        <button id="downloadPng" type="button">PNG</button>
-        <button id="downloadPpt" type="button">PPT</button>
-        <button id="openPortMap" type="button">Port Map</button>
+        <div class="control-group">
+          <button id="viewFull" type="button">전체</button>
+          <button id="viewWrapped" type="button">줄바꿈</button>
+          <button id="viewSummary" type="button">요약</button>
+        </div>
+        <div class="control-group">
+          <button id="zoomOut" type="button">-</button>
+          <button id="zoomReset" type="button">100%</button>
+          <button id="zoomIn" type="button">+</button>
+          <button id="zoomCenter" type="button" title="가운데 정렬" aria-label="가운데 정렬">⨁</button>
+          <button id="zoomFit" type="button" title="화면에 맞춤" aria-label="화면에 맞춤">⇔</button>
+        </div>
+        <div class="control-group">
+          <div id="downloadMenu" class="export-menu">
+            <button id="downloadExport" type="button">Export</button>
+            <div class="export-menu-list" role="menu" aria-label="구성도 저장 형식">
+              <button type="button" data-export-value="svg">SVG</button>
+              <button type="button" data-export-value="png">PNG</button>
+              <button type="button" data-export-value="ppt">PPT</button>
+            </div>
+          </div>
+          <button id="openPortMap" type="button">Port Map</button>
+        </div>
       </div>
     </div>
     <div id="viewer" class="viewer"></div>
@@ -413,9 +502,27 @@ function openDiagramWindow() {
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
 
+      function makeExportTimestamp() {
+        const now = new Date();
+        const pad = (value, size = 2) => String(value).padStart(size, "0");
+        return [
+          now.getFullYear(),
+          pad(now.getMonth() + 1),
+          pad(now.getDate()),
+        ].join("-") + "-" + [
+          pad(now.getHours()),
+          pad(now.getMinutes()),
+          pad(now.getSeconds()),
+        ].join("") + "-" + pad(Math.floor(now.getMilliseconds() / 10));
+      }
+
+      function exportFilename(prefix, extension) {
+        return prefix + "-" + makeExportTimestamp() + "." + extension;
+      }
+
       function downloadSvg() {
         const text = new XMLSerializer().serializeToString(exportClone());
-    downloadBlob(new Blob([text], { type: "image/svg+xml;charset=utf-8" }), exportFilename("leaf-spine-topology", "svg"));
+        downloadBlob(new Blob([text], { type: "image/svg+xml;charset=utf-8" }), exportFilename("leaf-spine-topology", "svg"));
       }
 
       async function downloadPng() {
@@ -453,9 +560,42 @@ function openDiagramWindow() {
       document.querySelector("#viewFull").addEventListener("click", () => setViewMode("full"));
       document.querySelector("#viewWrapped").addEventListener("click", () => setViewMode("wrapped"));
       document.querySelector("#viewSummary").addEventListener("click", () => setViewMode("summary"));
-      document.querySelector("#downloadSvg").addEventListener("click", downloadSvg);
-      document.querySelector("#downloadPng").addEventListener("click", downloadPng);
-      document.querySelector("#downloadPpt").addEventListener("click", () => {
+      function exportByFormat(format) {
+        if (format === "png") {
+          downloadPng();
+          return;
+        }
+        if (format === "ppt") {
+          downloadPpt();
+          return;
+        }
+        downloadSvg();
+      }
+
+      function closeExportMenus() {
+        document.querySelectorAll(".export-menu.is-open").forEach((menu) => menu.classList.remove("is-open"));
+      }
+
+      function setupExportMenu() {
+        const menu = document.querySelector("#downloadMenu");
+        const trigger = document.querySelector("#downloadExport");
+        trigger.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const willOpen = !menu.classList.contains("is-open");
+          closeExportMenus();
+          menu.classList.toggle("is-open", willOpen);
+        });
+        menu.addEventListener("click", (event) => {
+          const option = event.target.closest("[data-export-value]");
+          if (!option) return;
+          event.stopPropagation();
+          menu.classList.remove("is-open");
+          exportByFormat(option.dataset.exportValue);
+        });
+        document.addEventListener("click", closeExportMenus);
+      }
+
+      function downloadPpt() {
         if (!window.opener) {
           alert("메인 페이지와 연결되어 있지 않아 PPT를 만들 수 없습니다.");
           return;
@@ -469,11 +609,23 @@ function openDiagramWindow() {
           // Fall back to postMessage below when direct opener access is blocked.
         }
         window.opener.postMessage({ type: "leaf-spine-export-pptx", viewMode }, "*");
-      });
+      }
+
+      setupExportMenu();
       document.querySelector("#openPortMap").addEventListener("click", () => {
-        if (window.opener && typeof window.opener.openPortMapWindow === "function") {
-          window.opener.openPortMapWindow();
+        if (!window.opener) {
+          alert("메인 페이지와 연결되어 있지 않아 Port Map을 열 수 없습니다.");
+          return;
         }
+        try {
+          if (typeof window.opener.openPortMapWindow === "function") {
+            window.opener.openPortMapWindow();
+            return;
+          }
+        } catch (error) {
+          // Fall back to postMessage below when direct opener access is blocked.
+        }
+        window.opener.postMessage({ type: "leaf-spine-open-port-map" }, "*");
       });
       viewer.addEventListener("wheel", (event) => {
         event.preventDefault();
@@ -509,6 +661,142 @@ function makeExportSvgDataFromMarkup(markup) {
   };
 }
 
+function makeEmbeddedPretendardFontCss() {
+  const urls = window.LEAF_SPINE_FONT_DATA_URLS;
+  if (urls) {
+    return `
+      @font-face {
+        font-family: "Pretendard";
+        src: url("${urls.thin}") format("truetype");
+        font-weight: 100;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Pretendard";
+        src: url("${urls.extraLight}") format("truetype");
+        font-weight: 200;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Pretendard";
+        src: url("${urls.light}") format("truetype");
+        font-weight: 300;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Pretendard";
+        src: url("${urls.regular}") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Pretendard";
+        src: url("${urls.medium}") format("truetype");
+        font-weight: 500;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Pretendard";
+        src: url("${urls.semiBold}") format("truetype");
+        font-weight: 600;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Pretendard";
+        src: url("${urls.bold}") format("truetype");
+        font-weight: 700;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Pretendard";
+        src: url("${urls.extraBold}") format("truetype");
+        font-weight: 800;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Pretendard";
+        src: url("${urls.black}") format("truetype");
+        font-weight: 900;
+        font-style: normal;
+        font-display: block;
+      }
+    `;
+  }
+  return `
+    @font-face {
+      font-family: "Pretendard";
+      src: url("fonts/Pretendard-Thin.ttf") format("truetype");
+      font-weight: 100;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Pretendard";
+      src: url("fonts/Pretendard-ExtraLight.ttf") format("truetype");
+      font-weight: 200;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Pretendard";
+      src: url("fonts/Pretendard-Light.ttf") format("truetype");
+      font-weight: 300;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Pretendard";
+      src: url("fonts/Pretendard-Regular.ttf") format("truetype");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Pretendard";
+      src: url("fonts/Pretendard-Medium.ttf") format("truetype");
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Pretendard";
+      src: url("fonts/Pretendard-SemiBold.ttf") format("truetype");
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Pretendard";
+      src: url("fonts/Pretendard-Bold.ttf") format("truetype");
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Pretendard";
+      src: url("fonts/Pretendard-ExtraBold.ttf") format("truetype");
+      font-weight: 800;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Pretendard";
+      src: url("fonts/Pretendard-Black.ttf") format("truetype");
+      font-weight: 900;
+      font-style: normal;
+      font-display: swap;
+    }
+  `;
+}
+
 function makeExportSvgClone(svg) {
   const width = Number(svg.dataset.baseWidth) || 1200;
   const height = Number(svg.dataset.baseHeight) || 700;
@@ -535,13 +823,14 @@ function makeSvgBackgroundRect(width, height) {
 function makePngSvgStyleElement() {
   const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
   style.textContent = `
+    ${makeEmbeddedPretendardFontCss()}
     svg {
-      font-family: "Segoe UI", "Noto Sans KR", Arial, sans-serif;
+      font-family: "Pretendard", Arial, sans-serif;
       shape-rendering: geometricPrecision;
       text-rendering: geometricPrecision;
       background: #f8fbff;
     }
-    .hint text { fill: #5b6b86; font-weight: 900; font-size: 13px; }
+    .hint text { fill: #5b6b86; font-weight: 900; font-size: 14px; }
     .link, .uplink { vector-effect: non-scaling-stroke; }
     .link { stroke-width: 1.35; }
     .uplink { stroke-width: 1.45; }
@@ -553,13 +842,13 @@ function makePngSvgStyleElement() {
     .switch-face { fill: rgba(255, 255, 255, 0.14); stroke: rgba(255, 255, 255, 0.22); }
     .switch-port { fill: #e5e7eb; stroke: #111827; stroke-width: 0.6; }
     .switch-led, .server-led { fill: #86efac; stroke: #166534; stroke-width: 0.7; }
-    .spine text, .leaf text, .server .server-name { fill: #0f172a; font-size: 11px; }
+    .spine text, .leaf text, .server .server-name { fill: #0f172a; font-size: 12px; }
     .server .server-body, .server rect { fill: #475569; stroke: #334155; }
     .server .server-face { fill: #64748b; stroke: #334155; }
     .server .nic-port { stroke: #1f2937; stroke-width: 0.8; }
     .ellipsis-node rect { fill: #eef2f7; stroke: #94a3b8; stroke-dasharray: 4 4; }
-    .ellipsis-node text { fill: #334155; font-size: 18px; }
-    .ellipsis-node .ellipsis-label { fill: #64748b; font-size: 10px; }
+    .ellipsis-node text { fill: #334155; font-size: 19px; }
+    .ellipsis-node .ellipsis-label { fill: #64748b; font-size: 11px; }
   `;
   return style;
 }
@@ -616,7 +905,7 @@ function buildPptxWithPptxGen(result, viewMode = diagramViewMode) {
       y: toY(label.y - 9),
       w: toL(74),
       h: toL(18),
-      fontFace: "Segoe UI",
+      fontFace: "Arial",
       fontSize: 9,
       bold: true,
       color: "5B6B86",
@@ -1174,7 +1463,7 @@ function addPptSwitch(slide, sw, toX, toY, toL) {
     y: toY(sw.y + sw.h / 2 + 5),
     w: toL(90),
     h: toL(18),
-    fontFace: "Segoe UI",
+    fontFace: "Arial",
     fontSize: 7.5,
     bold: true,
     color: "0F172A",
@@ -1225,7 +1514,7 @@ function addPptServer(slide, server, toX, toY, toL) {
     y: toY(server.y + server.h / 2 + 5),
     w: toL(90),
     h: toL(18),
-    fontFace: "Segoe UI",
+    fontFace: "Arial",
     fontSize: 7.5,
     bold: true,
     color: "0F172A",
@@ -1250,7 +1539,7 @@ function addPptEllipsis(slide, item, toX, toY, toL) {
     y: toY(item.y - item.h / 2 + 1),
     w: toL(item.w),
     h: toL(item.h / 2),
-    fontFace: "Segoe UI",
+    fontFace: "Arial",
     fontSize: 11,
     bold: true,
     color: "334155",
@@ -1264,7 +1553,7 @@ function addPptEllipsis(slide, item, toX, toY, toL) {
     y: toY(item.y + item.h / 2 + 5),
     w: toL(item.w + 16),
     h: toL(16),
-    fontFace: "Segoe UI",
+    fontFace: "Arial",
     fontSize: 6.5,
     bold: true,
     color: "64748B",
@@ -1555,7 +1844,7 @@ function pptLine(id, x1, y1, x2, y2, color, width) {
 }
 
 function pptText(id, x, y, w, h, text, color, size, bold = false, align = "ctr") {
-  return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Text ${id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="none"/><a:lstStyle/><a:p><a:pPr algn="${align}"/><a:r><a:rPr lang="ko-KR" sz="${size * 100}"${bold ? ' b="1"' : ""}><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:latin typeface="Segoe UI"/><a:ea typeface="맑은 고딕"/></a:rPr><a:t>${escapeXml(text)}</a:t></a:r><a:endParaRPr lang="ko-KR"/></a:p></p:txBody></p:sp>`;
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Text ${id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="none"/><a:lstStyle/><a:p><a:pPr algn="${align}"/><a:r><a:rPr lang="ko-KR" sz="${size * 100}"${bold ? ' b="1"' : ""}><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:latin typeface="Arial"/><a:ea typeface="Arial"/></a:rPr><a:t>${escapeXml(text)}</a:t></a:r><a:endParaRPr lang="ko-KR"/></a:p></p:txBody></p:sp>`;
 }
 
 function contentTypesXml() {
@@ -1595,7 +1884,7 @@ function slideLayoutRelsXml() {
 }
 
 function themeXml() {
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Leaf-Spine Theme"><a:themeElements><a:clrScheme name="Leaf-Spine"><a:dk1><a:srgbClr val="0F172A"/></a:dk1><a:lt1><a:srgbClr val="FFFFFF"/></a:lt1><a:dk2><a:srgbClr val="334155"/></a:dk2><a:lt2><a:srgbClr val="EEF5FF"/></a:lt2><a:accent1><a:srgbClr val="2563EB"/></a:accent1><a:accent2><a:srgbClr val="B45309"/></a:accent2><a:accent3><a:srgbClr val="475569"/></a:accent3><a:accent4><a:srgbClr val="16A34A"/></a:accent4><a:accent5><a:srgbClr val="7C3AED"/></a:accent5><a:accent6><a:srgbClr val="0891B2"/></a:accent6><a:hlink><a:srgbClr val="2563EB"/></a:hlink><a:folHlink><a:srgbClr val="7C3AED"/></a:folHlink></a:clrScheme><a:fontScheme name="Leaf-Spine"><a:majorFont><a:latin typeface="Segoe UI"/><a:ea typeface="맑은 고딕"/><a:cs typeface="Segoe UI"/></a:majorFont><a:minorFont><a:latin typeface="Segoe UI"/><a:ea typeface="맑은 고딕"/><a:cs typeface="Segoe UI"/></a:minorFont></a:fontScheme><a:fmtScheme name="Leaf-Spine"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"/></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"/></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst><a:lnStyleLst><a:ln w="9525" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln><a:ln w="25400" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln><a:ln w="38100" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements><a:objectDefaults/><a:extraClrSchemeLst/></a:theme>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Leaf-Spine Theme"><a:themeElements><a:clrScheme name="Leaf-Spine"><a:dk1><a:srgbClr val="0F172A"/></a:dk1><a:lt1><a:srgbClr val="FFFFFF"/></a:lt1><a:dk2><a:srgbClr val="334155"/></a:dk2><a:lt2><a:srgbClr val="EEF5FF"/></a:lt2><a:accent1><a:srgbClr val="2563EB"/></a:accent1><a:accent2><a:srgbClr val="B45309"/></a:accent2><a:accent3><a:srgbClr val="475569"/></a:accent3><a:accent4><a:srgbClr val="16A34A"/></a:accent4><a:accent5><a:srgbClr val="7C3AED"/></a:accent5><a:accent6><a:srgbClr val="0891B2"/></a:accent6><a:hlink><a:srgbClr val="2563EB"/></a:hlink><a:folHlink><a:srgbClr val="7C3AED"/></a:folHlink></a:clrScheme><a:fontScheme name="Leaf-Spine"><a:majorFont><a:latin typeface="Arial"/><a:ea typeface="Arial"/><a:cs typeface="Arial"/></a:majorFont><a:minorFont><a:latin typeface="Arial"/><a:ea typeface="Arial"/><a:cs typeface="Arial"/></a:minorFont></a:fontScheme><a:fmtScheme name="Leaf-Spine"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"/></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"/></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst><a:lnStyleLst><a:ln w="9525" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln><a:ln w="25400" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln><a:ln w="38100" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements><a:objectDefaults/><a:extraClrSchemeLst/></a:theme>`;
 }
 
 function viewPropsXml() {

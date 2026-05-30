@@ -1,7 +1,7 @@
-:root {
+﻿:root {
   color-scheme: light;
   font-family:
-    Inter, "Segoe UI", "Noto Sans KR", Apple SD Gothic Neo, Arial, sans-serif;
+    "Pretendard", Arial, sans-serif;
   --bg: #eef5ff;
   --ink: #0f172a;
   --muted: #5b6b86;
@@ -12,6 +12,78 @@
   --leaf: #2563eb;
   --spine: #b45309;
   --server: #475569;
+}
+
+@font-face {
+  font-family: "Pretendard";
+  src: url("fonts/Pretendard-Thin.ttf") format("truetype");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Pretendard";
+  src: url("fonts/Pretendard-ExtraLight.ttf") format("truetype");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Pretendard";
+  src: url("fonts/Pretendard-Light.ttf") format("truetype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Pretendard";
+  src: url("fonts/Pretendard-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Pretendard";
+  src: url("fonts/Pretendard-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Pretendard";
+  src: url("fonts/Pretendard-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Pretendard";
+  src: url("fonts/Pretendard-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Pretendard";
+  src: url("fonts/Pretendard-ExtraBold.ttf") format("truetype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Pretendard";
+  src: url("fonts/Pretendard-Black.ttf") format("truetype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 * {
@@ -62,7 +134,7 @@ body {
 
 .panel-header h1 {
   margin: 6px 0 4px;
-  font-size: 23px;
+  font-size: 25px;
   line-height: 1.25;
 }
 
@@ -74,7 +146,7 @@ body {
 .eyebrow {
   margin: 0;
   color: var(--accent);
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 900;
   letter-spacing: 0;
   line-height: 1.1;
@@ -83,7 +155,7 @@ body {
 .title-credit {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   line-height: 1.2;
 }
@@ -93,7 +165,7 @@ body {
   padding-top: 12px;
   border-top: 1px solid var(--line);
   color: var(--accent-dark);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -101,7 +173,7 @@ label {
   display: grid;
   gap: 7px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -115,7 +187,23 @@ input {
   background: #fff;
 }
 
+select {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 34px 0 12px;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 900;
+  background: #fff;
+}
+
 input:focus {
+  outline: 3px solid rgba(37, 99, 235, 0.16);
+  border-color: var(--accent);
+}
+
+select:focus {
   outline: 3px solid rgba(37, 99, 235, 0.16);
   border-color: var(--accent);
 }
@@ -134,10 +222,11 @@ input:focus {
 
 .field-note {
   display: block;
-  margin-top: 7px;
+  margin: 12px 0 0;
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.55;
 }
 
 .check-row {
@@ -187,7 +276,7 @@ input:focus {
   border-radius: 6px;
   background: #f9faf8;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -220,8 +309,12 @@ button:hover {
   order: 99;
 }
 
-.save-report {
+.report-export {
   order: 100;
+}
+
+.save-report {
+  width: 100%;
   background: #0f766e;
 }
 
@@ -256,14 +349,14 @@ button:hover {
 .metric span {
   display: block;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
 }
 
 .metric strong {
   display: block;
   margin-top: 6px;
-  font-size: 30px;
+  font-size: 32px;
 }
 
 .detail,
@@ -273,7 +366,7 @@ button:hover {
 
 h2 {
   margin: 0 0 12px;
-  font-size: 19px;
+  font-size: 20px;
 }
 
 .detail-title {
@@ -297,7 +390,7 @@ h2 {
   border-radius: 999px;
   background: #fff1f2;
   color: #be123c;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 900;
   padding: 0 9px;
   white-space: nowrap;
@@ -316,13 +409,13 @@ dl {
 
 dt {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
 }
 
 dd {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 750;
 }
 
@@ -336,7 +429,7 @@ dd {
 .message {
   margin: 12px 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.55;
 }
 
@@ -369,7 +462,7 @@ dd {
   border-radius: 4px;
   background: #fff;
   color: var(--accent-dark);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 900;
   line-height: 1;
   padding: 0;
@@ -382,12 +475,12 @@ dd {
 
 .diagram-actions {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   align-items: center;
   flex-wrap: nowrap;
   justify-content: flex-end;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 @media (min-width: 1600px) {
@@ -404,7 +497,7 @@ dd {
   flex: 0 1 auto;
   min-width: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -421,17 +514,12 @@ dd {
 
 .view-controls {
   grid-template-columns: 48px 62px 48px;
-  gap: 4px;
+  gap: 5px;
 }
 
 .zoom-controls {
   grid-template-columns: 36px 64px 36px 36px 36px;
-  gap: 4px;
-}
-
-.export-controls {
-  grid-template-columns: 52px 52px 52px 82px;
-  gap: 6px;
+  gap: 5px;
 }
 
 .zoom-controls button,
@@ -443,8 +531,26 @@ dd {
   border-radius: 6px;
   background: #fff;
   color: var(--accent-dark);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 900;
+}
+
+.export-controls {
+  display: flex;
+  gap: 5px;
+}
+
+.export-controls .export-menu,
+.export-controls #exportDiagram,
+.export-controls #openPortMapWindow {
+  width: 72px;
+}
+
+.export-controls #exportDiagram,
+.export-controls #openPortMapWindow {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
 }
 
 .zoom-controls button:hover,
@@ -453,12 +559,65 @@ dd {
   background: #dbeafe;
 }
 
+.export-controls #exportDiagram:hover,
+.export-controls #openPortMapWindow:hover {
+  border-color: var(--accent-dark);
+  background: var(--accent-dark);
+}
+
+.export-menu {
+  position: relative;
+  min-width: 0;
+}
+
+.export-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: none;
+  min-width: 100%;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16);
+}
+
+.export-menu.is-open .export-menu-list {
+  display: grid;
+  gap: 4px;
+}
+
+.report-export .export-menu-list {
+  left: 0;
+  right: auto;
+  width: 100%;
+}
+
+.export-menu-list button {
+  width: 100%;
+  min-height: 28px;
+  justify-content: start;
+  padding: 0 10px;
+  border: 0;
+  background: #fff;
+  color: var(--accent-dark);
+  text-align: left;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.export-menu-list button:hover {
+  background: #dbeafe;
+}
+
 .zoom-controls button {
-  font-size: 15px;
+  font-size: 16px;
 }
 
 #zoomReset {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .view-controls button.is-active {
@@ -514,7 +673,7 @@ svg {
 
 .node text {
   fill: #fff;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   text-anchor: middle;
   dominant-baseline: middle;
@@ -528,12 +687,12 @@ svg {
 
 .ellipsis-node text {
   fill: #334155;
-  font-size: 18px;
+  font-size: 19px;
 }
 
 .ellipsis-node .ellipsis-label {
   fill: #64748b;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .spine .switch-body {
@@ -566,7 +725,7 @@ svg {
 .spine text,
 .leaf text {
   fill: var(--ink);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .server rect {
@@ -597,13 +756,13 @@ svg {
 }
 
 .server .server-name {
-  font-size: 11px;
+  font-size: 12px;
   fill: var(--ink);
 }
 
 .row-label {
   fill: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 900;
   text-anchor: start;
   dominant-baseline: middle;
@@ -616,7 +775,7 @@ svg {
 
 .hint text {
   fill: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -691,7 +850,7 @@ svg {
 
   .inputs h1,
   .inputs button[type="submit"],
-  .save-report,
+  .report-export,
   .reset-inputs,
   .diagram-actions,
   .icon-button {

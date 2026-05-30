@@ -1,4 +1,4 @@
-// Port map window, Excel export, and PowerPoint export helpers.
+﻿// Port map window, Excel export, and PowerPoint export helpers.
 // This file is loaded after app.js and uses the same classic-script globals.
 
 function openPortMapWindow() {
@@ -132,6 +132,7 @@ function makePortMapHtml(portMap) {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Leaf-Spine Port Map</title>
     <style>
+      ${makeEmbeddedPretendardFontCss()}
       * { box-sizing: border-box; }
       html,
       body {
@@ -143,7 +144,7 @@ function makePortMapHtml(portMap) {
         margin: 0;
         background: #eef5ff;
         color: #0f172a;
-        font-family: "Segoe UI", "Noto Sans KR", Arial, sans-serif;
+        font-family: "Pretendard", Arial, sans-serif;
         display: flex;
         flex-direction: column;
       }
@@ -165,13 +166,13 @@ function makePortMapHtml(portMap) {
       h1 {
         margin: 0;
         color: #2563eb;
-        font-size: 24px;
+        font-size: 26px;
         line-height: 1.2;
       }
       .credit {
         margin-top: 3px;
         color: #5b6b86;
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 800;
       }
       .actions {
@@ -187,12 +188,58 @@ function makePortMapHtml(portMap) {
         background: #fff;
         color: #1d4ed8;
         font: inherit;
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 900;
         cursor: pointer;
         padding: 0 12px;
       }
       button:hover {
+        background: #dbeafe;
+      }
+      .export-menu {
+        position: relative;
+      }
+      #exportPortMap {
+        width: 72px;
+        min-height: 28px;
+        padding: 0;
+        border-color: #2563eb;
+        background: #2563eb;
+        color: #fff;
+        font-size: 12px;
+      }
+      #exportPortMap:hover {
+        border-color: #1d4ed8;
+        background: #1d4ed8;
+      }
+      .export-menu-list {
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        z-index: 20;
+        display: none;
+        min-width: 72px;
+        padding: 6px;
+        border: 1px solid #c8d8ee;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16);
+      }
+      .export-menu.is-open .export-menu-list {
+        display: grid;
+        gap: 4px;
+      }
+      .export-menu-list button {
+        width: 100%;
+        min-height: 30px;
+        border: 0;
+        padding: 0 10px;
+        background: #fff;
+        color: #1d4ed8;
+        text-align: left;
+        font-size: 14px;
+      }
+      .export-menu-list button:hover {
         background: #dbeafe;
       }
       .summary {
@@ -211,13 +258,13 @@ function makePortMapHtml(portMap) {
       .metric span {
         display: block;
         color: #5b6b86;
-        font-size: 11px;
+        font-size: 13px;
         font-weight: 900;
       }
       .metric strong {
         display: block;
         margin-top: 4px;
-        font-size: 18px;
+        font-size: 19px;
       }
       main {
         padding: 0 22px 22px;
@@ -229,7 +276,7 @@ function makePortMapHtml(portMap) {
       .notice {
         margin: 0 0 10px;
         color: #92400e;
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 800;
         flex: 0 0 auto;
       }
@@ -253,7 +300,7 @@ function makePortMapHtml(portMap) {
         z-index: 1;
         background: #dbeafe;
         color: #1d4ed8;
-        font-size: 12px;
+        font-size: 13px;
         text-align: left;
       }
       th,
@@ -261,7 +308,7 @@ function makePortMapHtml(portMap) {
         padding: 9px 10px;
         border-bottom: 1px solid #e2e8f0;
         white-space: nowrap;
-        font-size: 13px;
+        font-size: 14px;
       }
       tbody tr:nth-child(even) td { background: #f8fbff; }
       tbody tr:hover td { background: #eff6ff; }
@@ -289,8 +336,13 @@ function makePortMapHtml(portMap) {
         <div class="credit">Created by 임채성</div>
       </div>
       <div class="actions">
-        <button id="exportPortMapExcel" type="button">Excel</button>
-        <button id="exportPortMapPpt" type="button">PPT</button>
+        <div id="portMapExportMenu" class="export-menu">
+          <button id="exportPortMap" type="button">Export</button>
+          <div class="export-menu-list" role="menu" aria-label="포트맵 저장 형식">
+            <button type="button" data-export-value="excel">Excel</button>
+            <button type="button" data-export-value="ppt">PPT</button>
+          </div>
+        </div>
       </div>
     </header>
     <section class="summary">
@@ -379,8 +431,32 @@ function makePortMapHtml(portMap) {
         }
         window.opener.postMessage({ type: "leaf-spine-export-port-map", format }, "*");
       }
-      document.querySelector("#exportPortMapExcel").addEventListener("click", () => runExport("exportPortMapExcel", "excel"));
-      document.querySelector("#exportPortMapPpt").addEventListener("click", () => runExport("exportPortMapPpt", "ppt"));
+      function closeExportMenus() {
+        document.querySelectorAll(".export-menu.is-open").forEach((menu) => menu.classList.remove("is-open"));
+      }
+      function setupExportMenu() {
+        const menu = document.querySelector("#portMapExportMenu");
+        const trigger = document.querySelector("#exportPortMap");
+        trigger.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const willOpen = !menu.classList.contains("is-open");
+          closeExportMenus();
+          menu.classList.toggle("is-open", willOpen);
+        });
+        menu.addEventListener("click", (event) => {
+          const option = event.target.closest("[data-export-value]");
+          if (!option) return;
+          event.stopPropagation();
+          menu.classList.remove("is-open");
+          if (option.dataset.exportValue === "ppt") {
+            runExport("exportPortMapPpt", "ppt");
+            return;
+          }
+          runExport("exportPortMapExcel", "excel");
+        });
+        document.addEventListener("click", closeExportMenus);
+      }
+      setupExportMenu();
     </script>
   </body>
 </html>`;
@@ -547,7 +623,7 @@ function xlsxStylesXml() {
   const fills = ["FFFFFF", "DBEAFE", "EFF6FF", "ECFDF5", "FFF7ED", "F5F3FF", "FFF1F2", "ECFEFF"];
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <fonts count="4"><font><sz val="10"/><name val="Segoe UI"/></font><font><b/><sz val="10"/><color rgb="FF1D4ED8"/><name val="Segoe UI"/></font><font><b/><sz val="10"/><color rgb="FF8A4B12"/><name val="Segoe UI"/></font><font><b/><sz val="10"/><color rgb="FF0F172A"/><name val="Segoe UI"/></font></fonts>
+  <fonts count="4"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FF1D4ED8"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FF8A4B12"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FF0F172A"/><name val="Arial"/></font></fonts>
   <fills count="${fills.length + 2}"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>${fills.map((color) => `<fill><patternFill patternType="solid"><fgColor rgb="FF${color}"/><bgColor indexed="64"/></patternFill></fill>`).join("")}</fills>
   <borders count="1"><border><left style="thin"><color rgb="FFC8D8EE"/></left><right style="thin"><color rgb="FFC8D8EE"/></right><top style="thin"><color rgb="FFC8D8EE"/></top><bottom style="thin"><color rgb="FFC8D8EE"/></bottom></border></borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
@@ -615,11 +691,11 @@ function buildPortMapPptx(portMap, generatedAtText = formatDisplayTimestamp(new 
 function addPortMapPptHeader(slide, pageNumber, pageCount, generatedAtText) {
   slide.addText("Leaf-Spine Port Map", {
     x: 0.35, y: 0.2, w: 2.6, h: 0.28,
-    fontFace: "Segoe UI", fontSize: 17, bold: true, color: "2563EB", margin: 0,
+    fontFace: "Arial", fontSize: 17, bold: true, color: "2563EB", margin: 0,
   });
   slide.addText(`Created by 임채성 ${generatedAtText}`, {
     x: 0.5, y: 0.5, w: 2.48, h: 0.16,
-    fontFace: "Segoe UI", fontSize: 7.5, bold: true, color: "5B6B86", align: "right", margin: 0,
+    fontFace: "Arial", fontSize: 7.5, bold: true, color: "5B6B86", align: "right", margin: 0,
   });
   addPortMapPptPageNumber(slide, pageNumber, pageCount, 0.32);
 }
@@ -627,7 +703,7 @@ function addPortMapPptHeader(slide, pageNumber, pageCount, generatedAtText) {
 function addPortMapPptPageNumber(slide, pageNumber, pageCount, y = 0.12) {
   slide.addText(`Page ${pageNumber} / ${pageCount}`, {
     x: 11.4, y, w: 1.4, h: 0.2,
-    fontFace: "Segoe UI", fontSize: 8, bold: true, color: "5B6B86", align: "right", margin: 0,
+    fontFace: "Arial", fontSize: 8, bold: true, color: "5B6B86", align: "right", margin: 0,
   });
 }
 
@@ -642,11 +718,11 @@ function addPortMapPptSummary(slide, portMap) {
     });
     slide.addText(label, {
       x: x + 0.09, y: 0.9, w: 1.65, h: 0.1,
-      fontFace: "Segoe UI", fontSize: 6.3, bold: true, color: "5B6B86", margin: 0,
+      fontFace: "Arial", fontSize: 6.3, bold: true, color: "5B6B86", margin: 0,
     });
     slide.addText(value, {
       x: x + 0.09, y: 1.05, w: 1.65, h: 0.14,
-      fontFace: "Segoe UI", fontSize: 9.3, bold: true, color: "0F172A", margin: 0,
+      fontFace: "Arial", fontSize: 9.3, bold: true, color: "0F172A", margin: 0,
     });
   });
 }
@@ -677,7 +753,7 @@ function addPortMapPptTable(slide, rows, startIndex, y) {
     w: 12.15,
     colW: [0.55, 1.35, 0.85, 1.8, 1.25, 2.05, 1.25, 1.05, 2.1],
     rowH: 0.36,
-    fontFace: "Segoe UI",
+    fontFace: "Arial",
     fontSize: 9,
     color: "0F172A",
     margin: 0.04,
@@ -764,7 +840,7 @@ function portMapTableCellXml(row, value, cellIndex) {
     fill = "F8FBFF";
   }
   return `<a:tc>
-    <a:txBody><a:bodyPr wrap="none" lIns="28575" rIns="28575" tIns="9525" bIns="9525" anchor="ctr"/><a:lstStyle/><a:p><a:pPr algn="l"/><a:r><a:rPr lang="ko-KR" sz="540"${bold ? ' b="1"' : ""}><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:latin typeface="Segoe UI"/><a:ea typeface="맑은 고딕"/></a:rPr><a:t>${escapeXml(value)}</a:t></a:r></a:p></a:txBody>
+    <a:txBody><a:bodyPr wrap="none" lIns="28575" rIns="28575" tIns="9525" bIns="9525" anchor="ctr"/><a:lstStyle/><a:p><a:pPr algn="l"/><a:r><a:rPr lang="ko-KR" sz="540"${bold ? ' b="1"' : ""}><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:latin typeface="Arial"/><a:ea typeface="Arial"/></a:rPr><a:t>${escapeXml(value)}</a:t></a:r></a:p></a:txBody>
     <a:tcPr><a:lnL w="3175"><a:solidFill><a:srgbClr val="C8D8EE"/></a:solidFill></a:lnL><a:lnR w="3175"><a:solidFill><a:srgbClr val="C8D8EE"/></a:solidFill></a:lnR><a:lnT w="3175"><a:solidFill><a:srgbClr val="C8D8EE"/></a:solidFill></a:lnT><a:lnB w="3175"><a:solidFill><a:srgbClr val="C8D8EE"/></a:solidFill></a:lnB><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill></a:tcPr>
   </a:tc>`;
 }

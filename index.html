@@ -77,7 +77,13 @@
           </label>
 
           <button type="submit">계산하기</button>
-          <button id="exportPdf" class="save-report" type="button">저장하기</button>
+          <div id="reportExportMenu" class="export-menu report-export">
+            <button id="exportPdf" class="save-report" type="button">보고서 생성</button>
+            <div class="export-menu-list" role="menu" aria-label="보고서 저장 형식">
+              <button type="button" data-export-value="svg">SVG</button>
+              <button type="button" data-export-value="pdf">PDF</button>
+            </div>
+          </div>
           <button id="resetInputs" class="reset-inputs" type="button">초기화</button>
           <label class="check-row">
             <input id="useMultiPlanar" type="checkbox" />
@@ -139,9 +145,14 @@
                   <button id="zoomFit" type="button" title="화면에 맞춤" aria-label="화면에 맞춤">⇔</button>
                 </div>
                 <div class="export-controls" aria-label="구성도 다운로드">
-                  <button id="exportSvg" type="button">SVG</button>
-                  <button id="exportPng" type="button">PNG</button>
-                  <button id="exportPptx" type="button">PPT</button>
+                  <div id="topologyExportMenu" class="export-menu">
+                    <button id="exportDiagram" type="button">Export</button>
+                    <div class="export-menu-list" role="menu" aria-label="구성도 저장 형식">
+                      <button type="button" data-export-value="svg">SVG</button>
+                      <button type="button" data-export-value="png">PNG</button>
+                      <button type="button" data-export-value="ppt">PPT</button>
+                    </div>
+                  </div>
                   <button id="openPortMapWindow" type="button">Port Map</button>
                 </div>
               </div>
@@ -155,6 +166,7 @@
     <script src="calculator.js"></script>
     <script src="export-utils.js"></script>
     <script src="diagram.js"></script>
+    <script src="report-font.js"></script>
     <script src="report.js"></script>
     <script src="app.js"></script>
     <script src="portmap.js"></script>

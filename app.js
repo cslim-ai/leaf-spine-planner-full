@@ -45,10 +45,10 @@ const outputs = {
   zoomReset: document.querySelector("#zoomReset"),
   zoomCenter: document.querySelector("#zoomCenter"),
   zoomFit: document.querySelector("#zoomFit"),
-  exportSvg: document.querySelector("#exportSvg"),
-  exportPng: document.querySelector("#exportPng"),
-  exportPptx: document.querySelector("#exportPptx"),
+  topologyExportMenu: document.querySelector("#topologyExportMenu"),
+  exportDiagram: document.querySelector("#exportDiagram"),
   openPortMapWindow: document.querySelector("#openPortMapWindow"),
+  reportExportMenu: document.querySelector("#reportExportMenu"),
   exportPdf: document.querySelector("#exportPdf"),
   resetInputs: document.querySelector("#resetInputs"),
 };
@@ -116,12 +116,11 @@ outputs.viewFull.addEventListener("click", () => setDiagramViewMode("full"));
 outputs.viewWrapped.addEventListener("click", () => setDiagramViewMode("wrapped"));
 outputs.viewSummary.addEventListener("click", () => setDiagramViewMode("summary"));
 outputs.openDiagramWindow.addEventListener("click", () => LeafSpineDiagram.openWindow());
-outputs.exportSvg.addEventListener("click", () => LeafSpineDiagram.exportSvg());
-outputs.exportPng.addEventListener("click", () => LeafSpineDiagram.exportPng());
-outputs.exportPptx.addEventListener("click", () => LeafSpineDiagram.exportPptx());
+setupExportMenu(outputs.topologyExportMenu, outputs.exportDiagram, exportDiagramByFormat);
 outputs.openPortMapWindow.addEventListener("click", () => LeafSpinePortMap.openWindow());
-outputs.exportPdf.addEventListener("click", () => LeafSpineReport.exportPdf());
+setupExportMenu(outputs.reportExportMenu, outputs.exportPdf, (format) => LeafSpineReport.export(format));
 outputs.resetInputs.addEventListener("click", () => resetInputsToDefaults());
+document.addEventListener("click", () => closeExportMenus());
 window.addEventListener("message", (event) => {
   if (event.data?.type === "leaf-spine-export-pptx") {
     LeafSpineDiagram.exportPptx(event.data.viewMode || diagramViewMode);
@@ -132,6 +131,9 @@ window.addEventListener("message", (event) => {
       ppt: LeafSpinePortMap.exportPpt,
     };
     actions[event.data.format]?.();
+  }
+  if (event.data?.type === "leaf-spine-open-port-map") {
+    LeafSpinePortMap.openWindow();
   }
 });
 outputs.diagram.addEventListener("wheel", (event) => {
@@ -156,6 +158,41 @@ window.addEventListener("resize", () => applyDiagramTransform());
 updateMode();
 updateTwinPortState();
 render(calculate(readInput()));
+
+function setupExportMenu(menu, trigger, onSelect) {
+  trigger.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const willOpen = !menu.classList.contains("is-open");
+    closeExportMenus();
+    menu.classList.toggle("is-open", willOpen);
+  });
+
+  menu.addEventListener("click", (event) => {
+    const option = event.target.closest("[data-export-value]");
+    if (!option) return;
+    event.stopPropagation();
+    menu.classList.remove("is-open");
+    onSelect(option.dataset.exportValue);
+  });
+}
+
+function closeExportMenus(except = null) {
+  document.querySelectorAll(".export-menu.is-open").forEach((menu) => {
+    if (menu !== except) menu.classList.remove("is-open");
+  });
+}
+
+function exportDiagramByFormat(format) {
+  if (format === "png") {
+    LeafSpineDiagram.exportPng();
+    return;
+  }
+  if (format === "ppt") {
+    LeafSpineDiagram.exportPptx();
+    return;
+  }
+  LeafSpineDiagram.exportSvg();
+}
 
 function updateMode() {
   const mode = getMode();
