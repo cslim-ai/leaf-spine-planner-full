@@ -180,18 +180,23 @@ function makeReportSvg(generatedAtText = formatDisplayTimestamp(new Date()), emb
   const metrics = getReportMetrics();
   const sidebarDividerY = margin + 80;
   const sidebarTopRowsY = margin + 108;
-  const sidebarH = 126 + sidebarRows.length * 38;
+  const sidebarH = 126 + reportRowsHeight(sidebarRows);
   const metricH = 92;
   const minDiagramH = 420;
+  const detailContentOffset = 76;
   const maxDetailH = pageHeight - (margin + metricH + gap + gap + minDiagramH) - margin;
-  const detailScale = Math.min(1, Math.max(0.66, (maxDetailH - 72) / reportDetailRowsHeight(detailRows)));
+  const detailScale = Math.min(1, Math.max(0.66, (maxDetailH - detailContentOffset) / reportDetailRowsHeight(detailRows)));
   const detailRowH = 24 * detailScale;
   const detailSeparatorH = 12 * detailScale;
   const detailFontSize = 14 * detailScale;
-  const detailH = Math.max(142, Math.min(maxDetailH, 72 + reportDetailRowsHeight(detailRows, detailRowH, detailSeparatorH)));
+  const detailH = Math.max(142, Math.min(maxDetailH, detailContentOffset + reportDetailRowsHeight(detailRows, detailRowH, detailSeparatorH)));
   const diagramH = pageHeight - (margin + metricH + gap + detailH + gap) - margin;
   const diagramY = margin + metricH + gap + detailH + gap;
-  const diagramSvg = makeVisibleDiagramSvgMarkup(contentW - 32, diagramH - 68);
+  const diagramViewportX = contentX + 16;
+  const diagramViewportY = diagramY + 52;
+  const diagramViewportW = contentW - 32;
+  const diagramViewportH = diagramH - 68;
+  const diagramSvg = makeVisibleDiagramSvgMarkup(diagramViewportW, diagramViewportH);
 
   return `
     <svg xmlns="http://www.w3.org/2000/svg" width="${pageWidth}" height="${pageHeight}" viewBox="0 0 ${pageWidth} ${pageHeight}">
@@ -199,30 +204,33 @@ function makeReportSvg(generatedAtText = formatDisplayTimestamp(new Date()), emb
         ${embeddedFontCss}
         svg, text { font-family: "Pretendard", Arial, sans-serif; }
         .title { fill: #2563eb; font-size: 30px; font-weight: 900; text-anchor: middle; }
-        .section { fill: #1d4ed8; font-size: 14px; font-weight: 900; }
-        .label { fill: #5b6b86; font-size: 13px; font-weight: 800; }
-        .value { fill: #0f172a; font-size: 14px; font-weight: 800; }
+        .section { fill: #1d4ed8; font-size: 16px; font-weight: 900; }
+        .subsection { fill: #0f172a; font-size: 13px; font-weight: 900; }
+        .label { fill: #5b6b86; font-size: 14px; font-weight: 700; }
+        .value { fill: #0f172a; font-size: 14px; font-weight: 700; }
         .metric-label { fill: #5b6b86; font-size: 13px; font-weight: 900; }
         .metric-value { fill: #0f172a; font-size: 28px; font-weight: 900; }
         .panel-title { fill: #0f172a; font-size: 18px; font-weight: 900; }
         .detail-label { fill: #5b6b86; font-size: ${trim(detailFontSize)}px; font-weight: 800; }
         .detail-value { fill: #0f172a; font-size: ${trim(detailFontSize)}px; font-weight: 800; }
+        .detail-group-label { fill: #1d4ed8; font-size: ${trim(Math.max(12, detailFontSize - 1))}px; font-weight: 900; }
         .detail-message { fill: #5b6b86; font-size: 14px; font-weight: 400; }
       </style>
       <rect width="100%" height="100%" fill="#eef5ff"/>
       ${reportPanel(margin, margin, sidebarW, sidebarH)}
       <text class="title" x="${margin + sidebarW / 2}" y="${margin + 38}">Leaf-Spine Planner</text>
-      <text class="label" x="${margin + sidebarW / 2 + 116}" y="${margin + 60}" text-anchor="end">Created by 임채성 ${escapeXml(generatedAtText)}</text>
+      <text class="label" x="${margin + sidebarW / 2}" y="${margin + 60}" text-anchor="middle">Created by 임채성 ${escapeXml(generatedAtText)}</text>
       <line x1="${margin + 20}" y1="${sidebarDividerY}" x2="${margin + sidebarW - 20}" y2="${sidebarDividerY}" stroke="#c8d8ee" stroke-width="1"/>
       ${reportRows(sidebarRows, margin + 20, sidebarTopRowsY, sidebarW - 40)}
       ${metrics.map((item, index) => reportMetricCard(contentX + index * ((contentW - 36) / 4 + 12), margin, (contentW - 36) / 4, metricH, item)).join("")}
       ${reportPanel(contentX, margin + metricH + gap, contentW, detailH)}
       <text class="panel-title" x="${contentX + 20}" y="${margin + metricH + gap + 32}">계산 결과</text>
       <line x1="${contentX + 20}" y1="${margin + metricH + gap + 46}" x2="${contentX + contentW - 20}" y2="${margin + metricH + gap + 46}" stroke="#c8d8ee" stroke-width="1"/>
-      ${reportDetailRows(detailRows, contentX + 20, margin + metricH + gap + 72, contentW - 40, detailRowH, detailSeparatorH)}
+      ${reportDetailRows(detailRows, contentX + 20, margin + metricH + gap + detailContentOffset, contentW - 40, detailRowH, detailSeparatorH)}
       ${reportPanel(contentX, diagramY, contentW, diagramH)}
       <text class="panel-title" x="${contentX + 20}" y="${diagramY + 32}">네트워크 구성도</text>
-      <g transform="translate(${contentX + 16} ${diagramY + 52})">${diagramSvg}</g>
+      ${reportDiagramViewport(diagramViewportX, diagramViewportY, diagramViewportW, diagramViewportH)}
+      <g transform="translate(${diagramViewportX} ${diagramViewportY})">${diagramSvg}</g>
     </svg>
   `;
 }
@@ -237,6 +245,10 @@ function reportPanel(x, y, w, h) {
   return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="#fff" stroke="#c8d8ee"/>`;
 }
 
+function reportDiagramViewport(x, y, w, h) {
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="#f8fbff" stroke="#c8d8ee"/>`;
+}
+
 function reportMetricCard(x, y, w, h, item) {
   return `
     ${reportPanel(x, y, w, h)}
@@ -249,11 +261,28 @@ function reportRows(rows, x, y, width) {
   let cursorY = y;
   return rows.map((row) => {
     if (row.type === "section") {
-      const markup = `<text class="section" x="${x}" y="${cursorY}">${escapeXml(row.label)}</text>`;
-      cursorY += 28;
+      const isFirstSection = cursorY === y;
+      const lineY = cursorY - (isFirstSection ? 18 : 18);
+      const textY = cursorY + (isFirstSection ? 0 : 10);
+      const separator = isFirstSection ? "" : `<line x1="${x}" y1="${lineY}" x2="${x + width}" y2="${lineY}" stroke="#c8d8ee" stroke-width="1"/>`;
+      const markup = `${separator}<text class="section" x="${x}" y="${textY}">${escapeXml(row.label)}</text>`;
+      cursorY += isFirstSection ? 30 : 38;
       return markup;
     }
-    const valueX = x + width * 0.52;
+    if (row.type === "subsection") {
+      const markup = `<text class="subsection" x="${x}" y="${cursorY}">${escapeXml(row.label)}</text>`;
+      cursorY += 24;
+      return markup;
+    }
+    const valueX = x + width * 0.62;
+    if (row.valueNextLine) {
+      const markup = `
+        <text class="label" x="${x}" y="${cursorY}">${escapeXml(row.label)}</text>
+        <text class="value" x="${valueX}" y="${cursorY + 20}">${escapeXml(row.value)}</text>
+      `;
+      cursorY += 56;
+      return markup;
+    }
     const markup = `
       <text class="label" x="${x}" y="${cursorY}">${escapeXml(row.label)}</text>
       <text class="value" x="${valueX}" y="${cursorY}">${escapeXml(row.value)}</text>
@@ -263,13 +292,44 @@ function reportRows(rows, x, y, width) {
   }).join("");
 }
 
+function reportRowsHeight(rows) {
+  let cursorY = 0;
+  rows.forEach((row) => {
+    if (row.type === "section") {
+      cursorY += cursorY === 0 ? 30 : 38;
+      return;
+    }
+    if (row.type === "subsection") {
+      cursorY += 24;
+      return;
+    }
+    cursorY += row.valueNextLine ? 56 : 38;
+  });
+  return cursorY;
+}
+
 function reportDetailRows(rows, x, y, width, rowHeight = 24, separatorHeight = 12) {
   let cursorY = y;
+  const contentIndent = 14;
+  let hasRenderedDetailItem = false;
   return rows.map((row) => {
     if (row.type === "separator") {
       const lineY = cursorY - separatorHeight * 0.8;
       cursorY += separatorHeight;
       return `<line x1="${x}" y1="${lineY}" x2="${x + width}" y2="${lineY}" stroke="#c8d8ee" stroke-width="1"/>`;
+    }
+    if (row.type === "group") {
+      const groupTopGap = hasRenderedDetailItem ? Math.max(7, rowHeight * 0.45) : 0;
+      const groupH = rowHeight * 1.14;
+      const groupBottomGap = Math.max(3, rowHeight * 0.22);
+      cursorY += groupTopGap;
+      const rectY = cursorY - rowHeight * 0.78;
+      const textY = cursorY;
+      cursorY += groupH + groupBottomGap;
+      return `
+        <rect x="${x}" y="${rectY}" width="${width}" height="${groupH}" rx="6" fill="#eef5ff"/>
+        <text class="detail-group-label" x="${x + 9}" y="${textY}">${escapeXml(row.label)}</text>
+      `;
     }
     if (row.type === "message") {
       const lines = splitReportMessage(row.value);
@@ -279,21 +339,32 @@ function reportDetailRows(rows, x, y, width, rowHeight = 24, separatorHeight = 1
         </text>
       `;
       cursorY += reportMessageHeight(row, rowHeight);
+      hasRenderedDetailItem = true;
       return markup;
     }
     const rowY = cursorY;
     cursorY += rowHeight;
+    hasRenderedDetailItem = true;
     return `
-      <text class="detail-label" x="${x}" y="${rowY}">${escapeXml(row.label)}</text>
-      <text class="detail-value" x="${x + width * 0.38}" y="${rowY}">${escapeXml(row.value)}</text>
+      <text class="detail-label" x="${x + contentIndent}" y="${rowY}">${escapeXml(row.label)}</text>
+      <text class="detail-value" x="${x + width * 0.38 + contentIndent}" y="${rowY}">${escapeXml(row.value)}</text>
     `;
   }).join("");
 }
 
 function reportDetailRowsHeight(rows, rowHeight = 24, separatorHeight = 12) {
+  let hasRenderedDetailItem = false;
   return rows.reduce((height, row) => {
     if (row.type === "separator") return height + separatorHeight;
-    if (row.type === "message") return height + reportMessageHeight(row, rowHeight);
+    if (row.type === "group") {
+      const groupTopGap = hasRenderedDetailItem ? Math.max(7, rowHeight * 0.45) : 0;
+      return height + groupTopGap + rowHeight * 1.14 + Math.max(3, rowHeight * 0.22);
+    }
+    if (row.type === "message") {
+      hasRenderedDetailItem = true;
+      return height + reportMessageHeight(row, rowHeight);
+    }
+    hasRenderedDetailItem = true;
     return height + rowHeight;
   }, 0);
 }
@@ -330,25 +401,25 @@ function splitReportMessage(text, maxChars = 82) {
 
 function getReportInputRows() {
   return [
-    { type: "section", label: "서버" },
-    { label: "서버 대수", value: fields.serverCount.value },
-    { label: "서버 NIC 포트 수", value: fields.serverNicPorts.value },
-    { label: "서버 NIC 링크 스피드", value: `${fields.serverLinkSpeed.value} Gbps` },
+    { type: "section", label: "노드" },
+    { label: "노드 수", value: fields.serverCount.value },
+    { label: "노드당 연결 포트 수", value: fields.serverNicPorts.value },
+    { label: "노드 연결 포트당 링크 스피드", value: `${fields.serverLinkSpeed.value} Gbps` },
     { type: "section", label: "스위치" },
-    { type: "section", label: "Leaf" },
+    { type: "subsection", label: "Leaf" },
     { label: "Leaf당 포트 수", value: fields.switchPorts.value },
     { label: "Leaf 포트당 링크 스피드", value: `${fields.switchLinkSpeed.value} Gbps` },
-    { label: "Leaf에 Twin-port Transceiver 사용", value: fields.useTwinPort.checked ? `${getTwinPortSpeedText(fields.switchLinkSpeed)} 사용` : "미사용" },
-    { type: "section", label: "Spine" },
+    { label: "Leaf에 Twin-port Transceiver 사용", value: fields.useTwinPort.checked ? `${getTwinPortSpeedText(fields.switchLinkSpeed)} 사용` : "미사용", valueNextLine: true },
+    { type: "subsection", label: "Spine" },
     { label: "Leaf와 사양 같음", value: fields.spineSameAsLeaf.checked ? "사용" : "미사용" },
     { label: "Spine당 포트 수", value: fields.spineSwitchPorts.value },
     { label: "Spine 포트당 링크 스피드", value: `${fields.spineSwitchLinkSpeed.value} Gbps` },
-    { label: "Spine에 Twin-port Transceiver 사용", value: fields.spineUseTwinPort.checked ? `${getTwinPortSpeedText(fields.spineSwitchLinkSpeed)} 사용` : "미사용" },
+    { label: "Spine에 Twin-port Transceiver 사용", value: fields.spineUseTwinPort.checked ? `${getTwinPortSpeedText(fields.spineSwitchLinkSpeed)} 사용` : "미사용", valueNextLine: true },
     { type: "section", label: "구성 방식" },
     { label: "Topology", value: getMode() === "oversubscribed" ? "Oversubscribed" : "Non-blocking" },
     { label: "Multi-planar Design", value: fields.useMultiPlanar.checked ? "사용" : "미사용" },
     { label: "Multi-pods Design", value: fields.useMultiPods.checked ? "사용" : "미사용" },
-    ...(fields.useMultiPods.checked ? [{ label: "Pod당 서버 수", value: fields.podServerCount.value }] : []),
+    ...(fields.useMultiPods.checked ? [{ label: "Pod당 노드 수", value: fields.podServerCount.value }] : []),
   ];
 }
 
@@ -364,6 +435,10 @@ function getReportMetrics() {
 function getReportDetailRows() {
   const rows = [];
   [...outputs.detailList.children].forEach((item) => {
+    if (item.classList.contains("detail-group")) {
+      rows.push({ type: "group", label: item.textContent });
+      return;
+    }
     if (item.classList.contains("detail-separator")) {
       rows.push({ type: "separator" });
       return;
@@ -385,6 +460,7 @@ function getReportDetailRows() {
 function makeVisibleDiagramSvgMarkup(width, height) {
   const svg = outputs.diagram.querySelector("svg");
   if (!svg) return "";
+  LeafSpineDiagram.adjustLabelBadges(svg);
   const clone = svg.cloneNode(true);
   clone.setAttribute("width", width);
   clone.setAttribute("height", height);
@@ -446,7 +522,7 @@ async function makeSelectableReportPdf(generatedAtText = formatDisplayTimestamp(
   fillRect(0, 0, layout.pageWidth, layout.pageHeight, "EEF5FF");
   rect(layout.margin, layout.margin, layout.sidebarW, layout.sidebarH);
   text("Leaf-Spine Planner", layout.margin + 50, layout.margin + 38, 28, "2563EB");
-  text(`Created by 임채성 ${generatedAtText}`, layout.margin + 72, layout.margin + 60, 12, "5B6B86");
+  text(`Created by 임채성 ${generatedAtText}`, layout.margin + layout.sidebarW / 2 - 92, layout.margin + 60, 12, "5B6B86");
   line(layout.margin + 20, layout.sidebarDividerY, layout.margin + layout.sidebarW - 20, layout.sidebarDividerY);
   drawPdfRows(ops, layout.sidebarRows, layout.margin + 20, layout.sidebarTopRowsY, layout.sidebarW - 40, text);
 
@@ -462,7 +538,7 @@ async function makeSelectableReportPdf(generatedAtText = formatDisplayTimestamp(
   rect(layout.contentX, detailY, layout.contentW, layout.detailH);
   text("계산 결과", layout.contentX + 20, detailY + 32, 17, "0F172A");
   line(layout.contentX + 20, detailY + 46, layout.contentX + layout.contentW - 20, detailY + 46);
-  drawPdfDetailRows(ops, layout.detailRows, layout.contentX + 20, detailY + 72, layout.contentW - 40, layout.detailRowH, layout.detailSeparatorH, layout.detailFontSize, text, line);
+  drawPdfDetailRows(ops, layout.detailRows, layout.contentX + 20, detailY + layout.detailContentOffset, layout.contentW - 40, layout.detailRowH, layout.detailSeparatorH, layout.detailFontSize, text, line);
 
   rect(layout.contentX, layout.diagramY, layout.contentW, layout.diagramH);
   text("네트워크 구성도", layout.contentX + 20, layout.diagramY + 32, 17, "0F172A");
@@ -473,6 +549,7 @@ async function makeSelectableReportPdf(generatedAtText = formatDisplayTimestamp(
   const imageHeight = diagramBlob._height;
   const imageX = layout.contentX + 16;
   const imageY = layout.diagramY + 52;
+  rect(imageX, imageY, layout.contentW - 32, layout.diagramH - 68, "F8FBFF", "C8D8EE");
   ops.push(`q ${trim(toW(layout.contentW - 32))} 0 0 ${trim(toH(layout.diagramH - 68))} ${trim(toX(imageX))} ${trim(toY(imageY + layout.diagramH - 68))} cm /Im0 Do Q`);
 
   const content = ops.join("\n");
@@ -504,15 +581,16 @@ function getReportLayout() {
   const metrics = getReportMetrics();
   const sidebarDividerY = margin + 80;
   const sidebarTopRowsY = margin + 108;
-  const sidebarH = 126 + sidebarRows.length * 38;
+  const sidebarH = 126 + reportRowsHeight(sidebarRows);
   const metricH = 92;
   const minDiagramH = 420;
+  const detailContentOffset = 76;
   const maxDetailH = pageHeight - (margin + metricH + gap + gap + minDiagramH) - margin;
-  const detailScale = Math.min(1, Math.max(0.66, (maxDetailH - 72) / reportDetailRowsHeight(detailRows)));
+  const detailScale = Math.min(1, Math.max(0.66, (maxDetailH - detailContentOffset) / reportDetailRowsHeight(detailRows)));
   const detailRowH = 24 * detailScale;
   const detailSeparatorH = 12 * detailScale;
   const detailFontSize = 14 * detailScale;
-  const detailH = Math.max(142, Math.min(maxDetailH, 72 + reportDetailRowsHeight(detailRows, detailRowH, detailSeparatorH)));
+  const detailH = Math.max(142, Math.min(maxDetailH, detailContentOffset + reportDetailRowsHeight(detailRows, detailRowH, detailSeparatorH)));
   const diagramH = pageHeight - (margin + metricH + gap + detailH + gap) - margin;
   const diagramY = margin + metricH + gap + detailH + gap;
   return {
@@ -533,6 +611,7 @@ function getReportLayout() {
     detailRowH,
     detailSeparatorH,
     detailFontSize,
+    detailContentOffset,
     detailH,
     diagramH,
     diagramY,
@@ -543,22 +622,54 @@ function drawPdfRows(ops, rows, x, y, width, text) {
   let cursorY = y;
   rows.forEach((row) => {
     if (row.type === "section") {
-      text(row.label, x, cursorY, 13, "1D4ED8");
-      cursorY += 28;
+      const isFirstSection = cursorY === y;
+      const lineY = cursorY - (isFirstSection ? 18 : 18);
+      const textY = cursorY + (isFirstSection ? 0 : 10);
+      if (cursorY !== y) {
+        ops.push(`q ${pdfRgb("C8D8EE")} RG 0.6 w ${trim(x * (595.28 / 1320))} ${trim(841.89 - lineY * (595.28 / 1320))} m ${trim((x + width) * (595.28 / 1320))} ${trim(841.89 - lineY * (595.28 / 1320))} l S Q`);
+      }
+      text(row.label, x, textY, 16, "1D4ED8");
+      cursorY += isFirstSection ? 30 : 38;
       return;
     }
-    text(row.label, x, cursorY, 12, "5B6B86");
-    text(row.value, x + width * 0.52, cursorY, 13, "0F172A");
+    if (row.type === "subsection") {
+      text(row.label, x, cursorY, 13, "0F172A");
+      cursorY += 24;
+      return;
+    }
+    if (row.valueNextLine) {
+      text(row.label, x, cursorY, 14, "5B6B86");
+      text(row.value, x + width * 0.62, cursorY + 20, 14, "0F172A");
+      cursorY += 56;
+      return;
+    }
+    text(row.label, x, cursorY, 14, "5B6B86");
+    text(row.value, x + width * 0.62, cursorY, 14, "0F172A");
     cursorY += 38;
   });
 }
 
 function drawPdfDetailRows(ops, rows, x, y, width, rowHeight, separatorHeight, fontSize, text, line) {
   let cursorY = y;
+  const contentIndent = 14;
+  let hasRenderedDetailItem = false;
   rows.forEach((row) => {
     if (row.type === "separator") {
       line(x, cursorY - separatorHeight * 0.8, x + width, cursorY - separatorHeight * 0.8);
       cursorY += separatorHeight;
+      return;
+    }
+    if (row.type === "group") {
+      const scale = 595.28 / 1320;
+      const pageHeight = 841.89;
+      const groupTopGap = hasRenderedDetailItem ? Math.max(7, rowHeight * 0.45) : 0;
+      const groupH = rowHeight * 1.14;
+      const groupBottomGap = Math.max(3, rowHeight * 0.22);
+      cursorY += groupTopGap;
+      const rectY = cursorY - rowHeight * 0.78;
+      ops.push(`q ${pdfRgb("EEF5FF")} rg ${trim(x * scale)} ${trim(pageHeight - (rectY + groupH) * scale)} ${trim(width * scale)} ${trim(groupH * scale)} re f Q`);
+      text(row.label, x + 9, cursorY, Math.max(12, fontSize - 1), "1D4ED8");
+      cursorY += groupH + groupBottomGap;
       return;
     }
     if (row.type === "message") {
@@ -566,11 +677,13 @@ function drawPdfDetailRows(ops, rows, x, y, width, rowHeight, separatorHeight, f
         text(messageLine, x, cursorY + index * rowHeight * 0.78, 14, "5B6B86");
       });
       cursorY += reportMessageHeight(row, rowHeight);
+      hasRenderedDetailItem = true;
       return;
     }
-    text(row.label, x, cursorY, fontSize, "5B6B86");
-    text(row.value, x + width * 0.38, cursorY, fontSize, "0F172A");
+    text(row.label, x + contentIndent, cursorY, fontSize, "5B6B86");
+    text(row.value, x + width * 0.38 + contentIndent, cursorY, fontSize, "0F172A");
     cursorY += rowHeight;
+    hasRenderedDetailItem = true;
   });
 }
 

@@ -69,7 +69,7 @@ function makeDiagram({ input, best }) {
         "link",
         {
           stroke: nicColor(nicIndex),
-          title: `Server NIC ${nicIndex + 1}`,
+          title: `Node NIC ${nicIndex + 1}`,
         },
       ));
     }
@@ -133,7 +133,7 @@ async function exportDiagramPng() {
     canvas.width = width * scale;
     canvas.height = height * scale;
     const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#f8fbff";
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
@@ -282,7 +282,7 @@ function openDiagramWindow() {
         width: 100%;
         height: 100%;
         max-width: none;
-        background: #f8fbff;
+        background: #fff;
       }
       .export-menu {
         position: relative;
@@ -472,6 +472,7 @@ function openDiagramWindow() {
       }
 
       function exportClone() {
+        adjustLabelBadges(svg);
         const clone = svg.cloneNode(true);
         clone.setAttribute("viewBox", "0 0 " + baseWidth + " " + baseHeight);
         clone.setAttribute("width", baseWidth);
@@ -479,10 +480,31 @@ function openDiagramWindow() {
         return clone;
       }
 
+      function adjustLabelBadges(targetSvg) {
+        if (!targetSvg) return;
+        targetSvg.querySelectorAll("text.node-label").forEach((text) => {
+          const rect = text.previousElementSibling;
+          if (!rect || !rect.classList.contains("node-label-bg") || typeof text.getBBox !== "function") return;
+          try {
+            const box = text.getBBox();
+            const padX = 2;
+            const padY = 1;
+            rect.setAttribute("x", trim(box.x - padX));
+            rect.setAttribute("y", trim(box.y - padY));
+            rect.setAttribute("width", trim(box.width + padX * 2));
+            rect.setAttribute("height", trim(box.height + padY * 2));
+          } catch {}
+        });
+      }
+
       function setViewMode(mode) {
         viewMode = mode;
         viewer.innerHTML = variants[mode].svg;
         svg = viewer.querySelector("svg");
+        adjustLabelBadges(svg);
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(() => adjustLabelBadges(svg));
+        }
         baseWidth = variants[mode].width;
         baseHeight = variants[mode].height;
         document.querySelector("#viewFull").classList.toggle("is-active", mode === "full");
@@ -542,7 +564,7 @@ function openDiagramWindow() {
           canvas.width = baseWidth * scale;
           canvas.height = baseHeight * scale;
           const ctx = canvas.getContext("2d");
-          ctx.fillStyle = "#f8fbff";
+          ctx.fillStyle = "#ffffff";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
           const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 1));
@@ -798,6 +820,7 @@ function makeEmbeddedPretendardFontCss() {
 }
 
 function makeExportSvgClone(svg) {
+  adjustLabelBadges(svg);
   const width = Number(svg.dataset.baseWidth) || 1200;
   const height = Number(svg.dataset.baseHeight) || 700;
   const clone = svg.cloneNode(true);
@@ -810,13 +833,32 @@ function makeExportSvgClone(svg) {
   return { clone, width, height };
 }
 
+function adjustLabelBadges(svg) {
+  if (!svg) return;
+  svg.querySelectorAll("text.node-label").forEach((text) => {
+    const rect = text.previousElementSibling;
+    if (!rect || !rect.classList.contains("node-label-bg") || typeof text.getBBox !== "function") return;
+    try {
+      const box = text.getBBox();
+      const padX = 2;
+      const padY = 1;
+      rect.setAttribute("x", trim(box.x - padX));
+      rect.setAttribute("y", trim(box.y - padY));
+      rect.setAttribute("width", trim(box.width + padX * 2));
+      rect.setAttribute("height", trim(box.height + padY * 2));
+    } catch {
+      // getBBox can fail while an SVG is detached; the initial estimated size remains usable.
+    }
+  });
+}
+
 function makeSvgBackgroundRect(width, height) {
   const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
   rect.setAttribute("x", "0");
   rect.setAttribute("y", "0");
   rect.setAttribute("width", width);
   rect.setAttribute("height", height);
-  rect.setAttribute("fill", "#f8fbff");
+  rect.setAttribute("fill", "#ffffff");
   return rect;
 }
 
@@ -828,7 +870,7 @@ function makePngSvgStyleElement() {
       font-family: "Pretendard", Arial, sans-serif;
       shape-rendering: geometricPrecision;
       text-rendering: geometricPrecision;
-      background: #f8fbff;
+      background: #ffffff;
     }
     .hint text { fill: #5b6b86; font-weight: 900; font-size: 14px; }
     .link, .uplink { vector-effect: non-scaling-stroke; }
@@ -836,19 +878,21 @@ function makePngSvgStyleElement() {
     .uplink { stroke-width: 1.45; }
     .node rect, .node circle { vector-effect: non-scaling-stroke; stroke-width: 1.2; }
     .node text { font-weight: 800; text-anchor: middle; dominant-baseline: middle; }
+    .node .node-label-bg { fill: #fff; stroke: #111827; stroke-width: 0.75; vector-effect: non-scaling-stroke; }
+    .node .node-label { fill: #0f172a; font-size: 10.5px; font-weight: 450; }
     .switch-body { stroke-width: 1.2; }
     .spine .switch-body { fill: #b45309; stroke: #92400e; }
     .leaf .switch-body { fill: #2563eb; stroke: #1e40af; }
     .switch-face { fill: rgba(255, 255, 255, 0.14); stroke: rgba(255, 255, 255, 0.22); }
     .switch-port { fill: #e5e7eb; stroke: #111827; stroke-width: 0.6; }
     .switch-led, .server-led { fill: #86efac; stroke: #166534; stroke-width: 0.7; }
-    .spine text, .leaf text, .server .server-name { fill: #0f172a; font-size: 12px; }
+    .spine text, .leaf text, .server .server-name { fill: #0f172a; font-size: 10.5px; font-weight: 450; }
     .server .server-body, .server rect { fill: #475569; stroke: #334155; }
     .server .server-face { fill: #64748b; stroke: #334155; }
     .server .nic-port { stroke: #1f2937; stroke-width: 0.8; }
     .ellipsis-node rect { fill: #eef2f7; stroke: #94a3b8; stroke-dasharray: 4 4; }
     .ellipsis-node text { fill: #334155; font-size: 19px; }
-    .ellipsis-node .ellipsis-label { fill: #64748b; font-size: 11px; }
+    .ellipsis-node .ellipsis-label { fill: #0f172a; font-size: 10px; font-weight: 450; }
   `;
   return style;
 }
@@ -883,21 +927,11 @@ function buildPptxWithPptxGen(result, viewMode = diagramViewMode) {
   const margin = 0.25;
 
   const slide = pptx.addSlide();
-  slide.background = { color: "F8FBFF" };
 
   const scale = Math.min((slideW - margin * 2) / geometry.width, (slideH - margin * 2) / geometry.height);
   const toX = (value) => margin + value * scale;
   const toY = (value) => margin + value * scale;
   const toL = (value) => value * scale;
-
-  slide.addShape("rect", {
-    x: 0,
-    y: 0,
-    w: slideW,
-    h: slideH,
-    fill: { color: "F8FBFF" },
-    line: { color: "F8FBFF", transparency: 100 },
-  });
 
   geometry.labels.forEach((label) => {
     slide.addText(label.text, {
@@ -1047,11 +1081,11 @@ function getPptDiagramGeometry({ input, best }) {
           y2: leafPosition.y + switchH / 2,
           color,
           kind: "link",
-          title: podCount > 1 ? `Server NIC ${nicIndex + 1} ${fabricGroupLabel(groupIndex, input, best)}` : `Server NIC ${nicIndex + 1}`,
+          title: podCount > 1 ? `Node NIC ${nicIndex + 1} ${fabricGroupLabel(groupIndex, input, best)}` : `Node NIC ${nicIndex + 1}`,
         });
       });
     }
-    servers.push({ x: serverPosition.x, y: serverPosition.y, w: serverW, h: serverH, number: serverIndex + 1, nicCount: input.serverNicPorts, label: `Server #${serverIndex + 1}`, ports });
+    servers.push({ x: serverPosition.x, y: serverPosition.y, w: serverW, h: serverH, number: serverIndex + 1, nicCount: input.serverNicPorts, label: `Node #${serverIndex + 1}`, ports });
   });
 
   return normalizeGeometryHorizontal({ width, height, labels, lines, switches, servers, labelGutter });
@@ -1156,7 +1190,7 @@ function getSummaryDiagramGeometry({ input, best }) {
   serverEntries.forEach((entry) => {
     const position = serverPositions.get(entry.key);
     if (entry.type === "ellipsis") {
-      ellipsis.push({ x: position.x, y: position.y, w: 78, h: 42, label: summaryHiddenLabel(entry, "Server") });
+      ellipsis.push({ x: position.x, y: position.y, w: 78, h: 42, label: summaryHiddenLabel(entry, "Node") });
       return;
     }
 
@@ -1186,11 +1220,11 @@ function getSummaryDiagramGeometry({ input, best }) {
           y2: leafY + switchH / 2,
           color,
           kind: "link",
-          title: podCount > 1 ? `Server NIC ${nicIndex + 1} ${fabricGroupLabel(groupIndex, input, best)}` : `Server NIC ${nicIndex + 1}`,
+          title: podCount > 1 ? `Node NIC ${nicIndex + 1} ${fabricGroupLabel(groupIndex, input, best)}` : `Node NIC ${nicIndex + 1}`,
         });
       });
     }
-    servers.push({ x: position.x, y: position.y, w: serverW, h: serverH, number: entry.index + 1, nicCount: input.serverNicPorts, label: `Server #${entry.index + 1}`, ports });
+    servers.push({ x: position.x, y: position.y, w: serverW, h: serverH, number: entry.index + 1, nicCount: input.serverNicPorts, label: `Node #${entry.index + 1}`, ports });
   });
 
   return normalizeGeometryHorizontal({
@@ -1488,20 +1522,7 @@ function addPptSwitch(slide, sw, toX, toY, toL) {
     fill: { color: "86EFAC" },
     line: { color: "166534", width: 0.25 },
   });
-  slide.addText(sw.label, {
-    x: toX(sw.x - 45),
-    y: toY(sw.y + sw.h / 2 + 5),
-    w: toL(90),
-    h: toL(18),
-    fontFace: "Arial",
-    fontSize: 7.5,
-    bold: true,
-    color: "0F172A",
-    align: "center",
-    valign: "mid",
-    margin: 0,
-    fit: "shrink",
-  });
+  addPptxGenLabelBadge(slide, sw.x, sw.y + sw.h / 2 + 14, sw.label, toX, toY, toL);
 }
 
 function addPptServer(slide, server, toX, toY, toL) {
@@ -1539,20 +1560,7 @@ function addPptServer(slide, server, toX, toY, toL) {
       line: { color: "1F2937", width: 0.3 },
     });
   });
-  slide.addText(server.label, {
-    x: toX(server.x - 45),
-    y: toY(server.y + server.h / 2 + 5),
-    w: toL(90),
-    h: toL(18),
-    fontFace: "Arial",
-    fontSize: 7.5,
-    bold: true,
-    color: "0F172A",
-    align: "center",
-    valign: "mid",
-    margin: 0,
-    fit: "shrink",
-  });
+  addPptxGenLabelBadge(slide, server.x, server.y + server.h / 2 + 14, server.label, toX, toY, toL);
 }
 
 function addPptEllipsis(slide, item, toX, toY, toL) {
@@ -1578,19 +1586,30 @@ function addPptEllipsis(slide, item, toX, toY, toL) {
     margin: 0,
     fit: "shrink",
   });
-  slide.addText(item.label, {
-    x: toX(item.x - item.w / 2 - 8),
-    y: toY(item.y + item.h / 2 + 5),
-    w: toL(item.w + 16),
-    h: toL(16),
+  addPptxGenLabelBadge(slide, item.x, item.y + item.h / 2 + 14, item.label, toX, toY, toL, 6);
+}
+
+function addPptxGenLabelBadge(slide, x, y, text, toX, toY, toL, fontSize = 6.6) {
+  const { width, height } = pptLabelBadgeSize(text);
+  const padding = 0.03937;
+  const boxW = toL(width) + padding * 2;
+  const boxH = toL(height) + padding * 2;
+  slide.addText(String(text || ""), {
+    x: toX(x) - boxW / 2,
+    y: toY(y) - boxH / 2,
+    w: boxW,
+    h: boxH,
     fontFace: "Arial",
-    fontSize: 6.5,
-    bold: true,
-    color: "64748B",
+    fontSize,
+    bold: false,
+    color: "0F172A",
+    fill: { color: "FFFFFF" },
+    line: { color: "111827", width: 0.25 },
     align: "center",
     valign: "mid",
-    margin: 0,
-    fit: "shrink",
+    margin: padding,
+    wrap: false,
+    fit: "resize",
   });
 }
 
@@ -1633,12 +1652,12 @@ function switchNode(className, x, y, w, h, text) {
       <rect class="switch-face" x="${x - w / 2 + 6}" y="${y - h / 2 + 5}" width="${w - 12}" height="${h - 10}" rx="2"></rect>
       ${ports}
       <circle class="switch-led" cx="${x + w / 2 - 14}" cy="${y - 2}" r="2.4"></circle>
-      <text x="${x}" y="${y + h / 2 + 14}">${text}</text>
+      ${labelBadge(x, y + h / 2 + 14, text)}
     </g>
   `;
 }
 
-function serverNode(x, y, w, h, serverNumber, nicCount, label = `Server #${serverNumber}`) {
+function serverNode(x, y, w, h, serverNumber, nicCount, label = `Node #${serverNumber}`) {
   const ports = Array.from({ length: nicCount }, (_, index) => {
     const portX = nicPortX(x, w, nicCount, index);
     return `<rect class="nic-port" x="${portX - 3}" y="${y - h / 2 + 7}" width="6" height="8" rx="1" style="fill: ${nicColor(index)}">
@@ -1652,7 +1671,7 @@ function serverNode(x, y, w, h, serverNumber, nicCount, label = `Server #${serve
       <rect class="server-face" x="${x - w / 2 + 6}" y="${y - h / 2 + 16}" width="${w - 12}" height="${h - 24}" rx="3"></rect>
       <circle class="server-led" cx="${x + w / 2 - 12}" cy="${y + h / 2 - 10}" r="2.5"></circle>
       ${ports}
-      <text class="server-name" x="${x}" y="${y + h / 2 + 14}">${label}</text>
+      ${labelBadge(x, y + h / 2 + 14, label, "server-name")}
     </g>
   `;
 }
@@ -1662,9 +1681,46 @@ function ellipsisNode(x, y, w, h, label) {
     <g class="node ellipsis-node">
       <rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="8"></rect>
       <text x="${x}" y="${y - 2}">...</text>
-      <text class="ellipsis-label" x="${x}" y="${y + h / 2 + 14}">${label}</text>
+      ${labelBadge(x, y + h / 2 + 14, label, "ellipsis-label")}
     </g>
   `;
+}
+
+function labelBadge(x, y, text, className = "") {
+  const label = String(text || "");
+  const { width, height } = labelBadgeSize(label);
+  const textClass = ["node-label", className].filter(Boolean).join(" ");
+  return `
+    <rect class="node-label-bg" x="${trim(x - width / 2)}" y="${trim(y - height / 2)}" width="${trim(width)}" height="${height}"></rect>
+    <text class="${textClass}" x="${x}" y="${y}">${escapeXml(label)}</text>
+  `;
+}
+
+function labelBadgeSize(text) {
+  const label = String(text || "");
+  const estimatedTextWidth = [...label].reduce((width, char) => {
+    if (/\s/.test(char)) return width + 3.2;
+    if (/[#]/.test(char)) return width + 6.4;
+    if (/[0-9]/.test(char)) return width + 5.8;
+    if (/[A-Z]/.test(char)) return width + 6.2;
+    if (/[a-z]/.test(char)) return width + 5.1;
+    if (/[-_/().]/.test(char)) return width + 3.5;
+    if (/[^\x00-\x7F]/.test(char)) return width + 9.6;
+    return width + 4.8;
+  }, 0);
+  const nodeNumberPadding = /^Node\s+#\d+$/i.test(label) ? 3 : 0;
+  return {
+    width: Math.max(18, estimatedTextWidth + 5 + nodeNumberPadding),
+    height: 12.5,
+  };
+}
+
+function pptLabelBadgeSize(text) {
+  const size = labelBadgeSize(text);
+  return {
+    width: size.width + 2,
+    height: size.height + 1,
+  };
 }
 
 function serverNodeWidth(nicCount) {
@@ -1789,11 +1845,11 @@ function getDiagramGeometry({ input, best }) {
           y2: leafY + switchH / 2,
           color,
           kind: "link",
-          title: podCount > 1 ? `Server NIC ${nicIndex + 1} ${fabricGroupLabel(groupIndex, input, best)}` : `Server NIC ${nicIndex + 1}`,
+          title: podCount > 1 ? `Node NIC ${nicIndex + 1} ${fabricGroupLabel(groupIndex, input, best)}` : `Node NIC ${nicIndex + 1}`,
         });
       });
     }
-    servers.push({ x: serverX, y: serverY, w: serverW, h: serverH, number: serverIndex + 1, nicCount: input.serverNicPorts, label: `Server #${serverIndex + 1}`, ports });
+    servers.push({ x: serverX, y: serverY, w: serverW, h: serverH, number: serverIndex + 1, nicCount: input.serverNicPorts, label: `Node #${serverIndex + 1}`, ports });
   });
 
   return normalizeGeometryHorizontal({
@@ -1820,7 +1876,6 @@ function buildSlideXml(geometry) {
   const shapes = [];
   let id = 2;
 
-  shapes.push(pptRect(id++, 0, 0, slideW, slideH, "F8FBFF", "F8FBFF"));
   geometry.labels.forEach((label) => {
     shapes.push(pptText(id++, toX(label.x), toY(label.y - 9), toL(74), toL(18), label.text, "5B6B86", 11, true));
   });
@@ -1836,7 +1891,7 @@ function buildSlideXml(geometry) {
       shapes.push(pptRect(id++, toX(sw.x - sw.w / 2 + 14 + i * 7), toY(sw.y - 4), toL(4), toL(5), "E5E7EB", "111827", "rect"));
     }
     shapes.push(pptEllipse(id++, toX(sw.x + sw.w / 2 - 16.4), toY(sw.y - 4.4), toL(4.8), toL(4.8), "86EFAC", "166534"));
-    shapes.push(pptText(id++, toX(sw.x - 45), toY(sw.y + sw.h / 2 + 5), toL(90), toL(18), sw.label, "0F172A", 9, true));
+    id = pushPptLabelBadge(shapes, id, sw.x, sw.y + sw.h / 2 + 14, sw.label, toX, toY, toL);
   });
   geometry.servers.forEach((server) => {
     shapes.push(pptRect(id++, toX(server.x - server.w / 2), toY(server.y - server.h / 2), toL(server.w), toL(server.h), "475569", "334155", "roundRect"));
@@ -1845,7 +1900,13 @@ function buildSlideXml(geometry) {
     server.ports.forEach((port) => {
       shapes.push(pptRect(id++, toX(port.x - 3), toY(port.y), toL(6), toL(8), cleanColor(port.color), "1F2937", "rect"));
     });
-    shapes.push(pptText(id++, toX(server.x - 45), toY(server.y + server.h / 2 + 5), toL(90), toL(18), server.label, "0F172A", 9, true));
+    id = pushPptLabelBadge(shapes, id, server.x, server.y + server.h / 2 + 14, server.label, toX, toY, toL);
+  });
+
+  (geometry.ellipsis || []).forEach((item) => {
+    shapes.push(pptRect(id++, toX(item.x - item.w / 2), toY(item.y - item.h / 2), toL(item.w), toL(item.h), "EEF2F7", "94A3B8", "roundRect"));
+    shapes.push(pptText(id++, toX(item.x - item.w / 2), toY(item.y - item.h / 2 + 1), toL(item.w), toL(item.h / 2), "...", "334155", 11, true));
+    id = pushPptLabelBadge(shapes, id, item.x, item.y + item.h / 2 + 14, item.label, toX, toY, toL, 7);
   });
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -1860,6 +1921,15 @@ function buildSlideXml(geometry) {
 
 function pptRect(id, x, y, w, h, fill, stroke, preset = "rect", transparency = 0) {
   return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Shape ${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm><a:prstGeom prst="${preset}"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="${fill}">${transparency ? `<a:alpha val="${100000 - transparency}"/>` : ""}</a:srgbClr></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="${stroke}"/></a:solidFill></a:ln></p:spPr></p:sp>`;
+}
+
+function pushPptLabelBadge(shapes, id, x, y, text, toX, toY, toL, fontSize = 7.5) {
+  const { width, height } = pptLabelBadgeSize(text);
+  const padding = 36000;
+  const boxW = toL(width) + padding * 2;
+  const boxH = toL(height) + padding * 2;
+  shapes.push(pptTextBox(id++, toX(x) - Math.round(boxW / 2), toY(y) - Math.round(boxH / 2), boxW, boxH, text, "0F172A", fontSize, "FFFFFF", "111827", "ctr", padding));
+  return id;
 }
 
 function pptEllipse(id, x, y, w, h, fill, stroke) {
@@ -1878,6 +1948,10 @@ function pptLine(id, x1, y1, x2, y2, color, width) {
 
 function pptText(id, x, y, w, h, text, color, size, bold = false, align = "ctr") {
   return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Text ${id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="none"/><a:lstStyle/><a:p><a:pPr algn="${align}"/><a:r><a:rPr lang="ko-KR" sz="${size * 100}"${bold ? ' b="1"' : ""}><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:latin typeface="Arial"/><a:ea typeface="Arial"/></a:rPr><a:t>${escapeXml(text)}</a:t></a:r><a:endParaRPr lang="ko-KR"/></a:p></p:txBody></p:sp>`;
+}
+
+function pptTextBox(id, x, y, w, h, text, color, size, fill, stroke, align = "ctr", inset = 0) {
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Label ${id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="${stroke}"/></a:solidFill></a:ln></p:spPr><p:txBody><a:bodyPr wrap="none" lIns="${inset}" tIns="${inset}" rIns="${inset}" bIns="${inset}" anchor="ctr"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn="${align}"/><a:r><a:rPr lang="ko-KR" sz="${size * 100}"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:latin typeface="Arial"/><a:ea typeface="Arial"/></a:rPr><a:t>${escapeXml(text)}</a:t></a:r><a:endParaRPr lang="ko-KR"/></a:p></p:txBody></p:sp>`;
 }
 
 function contentTypesXml() {
@@ -1940,6 +2014,7 @@ function corePropsXml() {
 const LeafSpineDiagram = {
   makeForView: (result, viewMode) => makeDiagramFromGeometry(diagramGeometryForView(result, viewMode)),
   getGeometryForView: (result, viewMode) => diagramGeometryForView(result, viewMode),
+  adjustLabelBadges,
   exportPng: exportDiagramPng,
   exportSvg: exportDiagramSvg,
   exportPptx: exportDiagramPptx,

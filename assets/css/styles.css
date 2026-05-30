@@ -247,6 +247,10 @@ select:focus {
   align-items: center;
 }
 
+.check-row span {
+  font-weight: 500;
+}
+
 .check-row input {
   width: 18px;
   height: 18px;
@@ -441,8 +445,13 @@ dt {
   font-weight: 800;
 }
 
+dl > dt:not(.detail-group):not(.detail-separator) {
+  padding-left: 14px;
+}
+
 dd {
   margin: 0;
+  padding-left: 4px;
   font-size: 14px;
   font-weight: 750;
 }
@@ -452,6 +461,21 @@ dd {
   height: 1px;
   margin: 2px 0;
   border-top: 1px solid var(--line);
+}
+
+.detail-group {
+  grid-column: 1 / -1;
+  margin: 8px 0 1px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  background: #eef5ff;
+  color: var(--accent-dark);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.detail-group:first-child {
+  margin-top: 0;
 }
 
 .message {
@@ -659,7 +683,7 @@ dd {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #f8fbff;
+  background: #fff;
   overscroll-behavior: contain;
   height: 560px;
   height: clamp(460px, calc(100vh - 540px), 540px);
@@ -707,6 +731,19 @@ svg {
   dominant-baseline: middle;
 }
 
+.node .node-label-bg {
+  fill: #fff;
+  stroke: #111827;
+  stroke-width: 0.75;
+  vector-effect: non-scaling-stroke;
+}
+
+.node .node-label {
+  fill: #0f172a;
+  font-size: 10.5px;
+  font-weight: 450;
+}
+
 .ellipsis-node rect {
   fill: #eef2f7;
   stroke: #94a3b8;
@@ -719,8 +756,9 @@ svg {
 }
 
 .ellipsis-node .ellipsis-label {
-  fill: #64748b;
-  font-size: 11px;
+  fill: #0f172a;
+  font-size: 10px;
+  font-weight: 450;
 }
 
 .spine .switch-body {
@@ -753,7 +791,8 @@ svg {
 .spine text,
 .leaf text {
   fill: var(--ink);
-  font-size: 12px;
+  font-size: 10.5px;
+  font-weight: 450;
 }
 
 .server rect {
@@ -784,7 +823,8 @@ svg {
 }
 
 .server .server-name {
-  font-size: 12px;
+  font-size: 10.5px;
+  font-weight: 450;
   fill: var(--ink);
 }
 
@@ -797,7 +837,7 @@ svg {
 }
 
 .label-gutter {
-  fill: #f8fbff;
+  fill: #fff;
   stroke: none;
 }
 

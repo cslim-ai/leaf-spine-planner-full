@@ -103,6 +103,15 @@ const LEAF_COLORS = [
 modeInputs.forEach((input) => input.addEventListener("change", updateMode));
 fields.useMultiPlanar.addEventListener("change", updateMode);
 fields.useMultiPods.addEventListener("change", updateMode);
+fields.useTwinPort.addEventListener("change", () => {
+  if (fields.useTwinPort.checked && !fields.spineUseTwinPort.disabled) {
+    delete fields.spineUseTwinPort.dataset.userChanged;
+    fields.spineUseTwinPort.checked = true;
+  }
+});
+fields.spineUseTwinPort.addEventListener("change", () => {
+  fields.spineUseTwinPort.dataset.userChanged = "1";
+});
 fields.spineSameAsLeaf.addEventListener("change", () => {
   syncSpineSwitchFields();
   updateTwinPortState();
@@ -255,6 +264,7 @@ function resetInputsToDefaults() {
   fields.spineSwitchPorts.value = "64";
   fields.spineSwitchLinkSpeed.value = "400";
   fields.spineUseTwinPort.checked = false;
+  delete fields.spineUseTwinPort.dataset.userChanged;
   fields.disableUplinkTwinPort.checked = false;
   fields.targetOversub.value = "3";
   fields.useMultiPlanar.checked = false;
@@ -287,6 +297,9 @@ function updateTwinPortState() {
   const spineSpeed = Number.parseFloat(fields.spineSwitchLinkSpeed.value) || 0;
   const spineTwinDisabled = spineSpeed < 200 || fields.disableUplinkTwinPort.checked;
   fields.spineUseTwinPort.disabled = spineTwinDisabled;
+  if (fields.useTwinPort.checked && !spineTwinDisabled && !fields.spineUseTwinPort.checked && !fields.spineUseTwinPort.dataset.userChanged) {
+    fields.spineUseTwinPort.checked = true;
+  }
   if (spineTwinDisabled) fields.spineUseTwinPort.checked = false;
   fields.spineUseTwinPort.closest("label")?.classList.toggle("is-disabled", spineTwinDisabled);
 
@@ -370,7 +383,7 @@ function render(result) {
   const totalSpineLeafLinkTransceivers = Math.ceil(best.totalLeafUplinks / leafSpineLinkTwinFactor);
   const serverLeafTransceiverType = input.useTwinPort ? "Twin-port Transceiver 사용" : "일반 Transceiver 사용";
   const leafTwinUsageText = input.useTwinPort
-    ? (input.disableUplinkTwinPort ? "사용, 서버-Leaf 구간만 적용" : "사용, 서버-Leaf 및 Leaf-Spine 구간 적용")
+    ? (input.disableUplinkTwinPort ? "사용, 노드-Leaf 구간만 적용" : "사용, 노드-Leaf 및 Leaf-Spine 구간 적용")
     : "미사용";
   const leafUplinkTransceiverType = leafSpineLeafLinkTwinFactor > 1 ? "Twin-port Transceiver 사용" : "일반 Transceiver 사용";
   const spineTransceiverType = leafSpineLinkTwinFactor > 1 ? "Twin-port Transceiver 사용" : "일반 Transceiver 사용";
@@ -383,54 +396,52 @@ function render(result) {
     : (input.useMultiPods ? "Pod" : "Plane");
   const details = [
     ...((input.useMultiPlanar || input.useMultiPods) ? [
+      ["group", "구성 방식"],
       ["구성 방식", [
         input.useMultiPlanar ? "Multi-planar design" : null,
         input.useMultiPods ? "Multi-pods design" : null,
       ].filter(Boolean).join(" + ")],
       ...(input.useMultiPods ? [["Pod 수", `${best.multiPodCount}개`]] : []),
       ...(input.useMultiPlanar ? [["Plane 수", `${best.planeCount}개`]] : []),
-      [input.useMultiPods ? "Pod당 서버 수" : "Plane당 서버 수", `${best.podServerCount}대`],
+      [input.useMultiPods ? "Pod당 노드 수" : "Plane당 노드 수", `${best.podServerCount}대`],
       [`${groupLabel}당 Leaf/Spine`, `${best.perPodLeafs} Leaf / ${best.perPodSpines} Spine`],
-      ["separator"],
     ] : []),
-    ["서버당 연결 포트", `${input.serverNicPorts.toLocaleString()}개`],
-    ["전체 서버 연결 포트", `${result.totalServerLinks.toLocaleString()}개`],
-    ["separator"],
-    ["서버당 대역폭", `${formatGbps(result.serverBandwidth)}`],
-    ["전체 서버 대역폭", `${formatGbps(result.totalServerBandwidth)}`],
-    ["separator"],
-    ["Leaf당 서버 링크", `${best.downlinks.toLocaleString()}개 (${formatGbps(best.leafDownlinkBandwidth)})`],
-    ["전체 Leaf-서버 링크", `${result.totalServerLinks.toLocaleString()}개 (${formatGbps(totalLeafServerDownlinkBandwidth)})`],
-    ["separator"],
+    ["group", "노드"],
+    ["노드당 연결 포트", `${input.serverNicPorts.toLocaleString()}개`],
+    ["전체 노드 연결 포트", `${result.totalServerLinks.toLocaleString()}개`],
+    ["노드당 대역폭", `${formatGbps(result.serverBandwidth)}`],
+    ["전체 노드 대역폭", `${formatGbps(result.totalServerBandwidth)}`],
+    ["group", "Leaf 다운링크"],
+    ["Leaf당 노드 링크", `${best.downlinks.toLocaleString()}개 (${formatGbps(best.leafDownlinkBandwidth)})`],
+    ["전체 Leaf-노드 링크", `${result.totalServerLinks.toLocaleString()}개 (${formatGbps(totalLeafServerDownlinkBandwidth)})`],
+    ["group", "Leaf-Spine 업링크"],
     ["Leaf당 Spine 링크", `${best.uplinksPerLeaf.toLocaleString()}개 (${formatGbps(best.leafUplinkBandwidth)})`],
     ["전체 Leaf-Spine 링크", `${best.totalLeafUplinks.toLocaleString()}개 (${formatGbps(totalLeafSpineUplinkBandwidth)})`],
-    ["separator"],
+    ["group", "Leaf 포트 사용량"],
     ["Leaf당 총 사용 포트", `${best.usedPortsPerLeaf.toLocaleString()}/${best.switchPortCapacity.toLocaleString()}개 (논리 ${best.logicalPortsPerLeaf.toLocaleString()}개)`],
     ["Leaf당 총 예비 포트", `${best.unusedPortsPerLeaf.toLocaleString()}개`],
     ["전체 Leaf 총 사용 포트", `${totalLeafUsedPorts.toLocaleString()}개`],
     ["전체 Leaf 총 예비 포트", `${totalLeafUnusedPorts.toLocaleString()}개`],
     ["Leaf에 Twin-port Transceiver 사용", leafTwinUsageText],
-    ["separator"],
+    ["group", "Spine 포트 사용량"],
     ["Spine당 Leaf 링크", `${best.logicalLinksPerSpine.toLocaleString()}개 (${formatGbps(best.logicalLinksPerSpine * effectiveSwitchLinkSpeed(input))})`],
     ["전체 Spine-Leaf 링크", `${best.totalLeafUplinks.toLocaleString()}개 (${formatGbps(totalLeafSpineUplinkBandwidth)})`],
-    ["separator"],
     ["Spine당 총 사용 포트", `${best.usedPortsPerSpine.toLocaleString()}/${spineSwitchPortCapacity.toLocaleString()}개 (논리 ${best.logicalLinksPerSpine.toLocaleString()}개)`],
     ["Spine당 총 예비 포트", `${best.unusedPortsPerSpine.toLocaleString()}개`],
     ["전체 Spine 총 사용 포트", `${totalSpineUsedPorts.toLocaleString()}개`],
     ["전체 Spine 총 예비 포트", `${totalSpineUnusedPorts.toLocaleString()}개`],
     ["Spine에 Twin-port Transceiver 사용", input.spineUseTwinPort ? "사용, Leaf-Spine 구간 적용" : "미사용"],
-    ["separator"],
+    ["group", "Leaf-Spine 균등성"],
     ["Leaf-Spine 연결 방식", `Leaf당 ${best.spines}대 Spine에 총 ${best.uplinksPerLeaf}개 업링크 분산`],
     ["Leaf-Spine 링크 균등 여부", leafSpineBalanceText],
-    ["separator"],
-    ["Leaf당 서버 링크 Transceiver", `${leafServerLinkTransceivers.toLocaleString()}개 (${serverLeafTransceiverType})`],
-    ["Leaf당 서버 링크 케이블", `${best.downlinks.toLocaleString()}개`],
-    ["전체 Leaf-서버 링크 Transceiver", `${totalLeafServerLinkTransceivers.toLocaleString()}개 (${serverLeafTransceiverType})`],
-    ["전체 Leaf-서버 링크 케이블", `${result.totalServerLinks.toLocaleString()}개`],
-    ["separator"],
+    ["group", "Node-Leaf Transceiver / 케이블"],
+    ["Leaf당 노드 링크 Transceiver", `${leafServerLinkTransceivers.toLocaleString()}개 (${serverLeafTransceiverType})`],
+    ["Leaf당 노드 링크 케이블", `${best.downlinks.toLocaleString()}개`],
+    ["전체 Leaf-노드 링크 Transceiver", `${totalLeafServerLinkTransceivers.toLocaleString()}개 (${serverLeafTransceiverType})`],
+    ["전체 Leaf-노드 링크 케이블", `${result.totalServerLinks.toLocaleString()}개`],
+    ["group", "Leaf-Spine Transceiver / 케이블"],
     ["Leaf당 Spine 링크 Transceiver", `${leafSpineLinkTransceivers.toLocaleString()}개 (${leafUplinkTransceiverType})`],
     ["전체 Leaf-Spine 링크 Transceiver", `${totalLeafSpineLinkTransceivers.toLocaleString()}개 (${leafUplinkTransceiverType})`],
-    ["separator"],
     ["Spine당 Leaf 링크 Transceiver", `${spineLeafLinkTransceivers.toLocaleString()}개 (${spineTransceiverType})`],
     ["Spine당 Leaf 링크 케이블", `${best.logicalLinksPerSpine.toLocaleString()}개`],
     ["전체 Spine-Leaf 링크 Transceiver", `${totalSpineLeafLinkTransceivers.toLocaleString()}개 (${spineTransceiverType})`],
@@ -439,13 +450,16 @@ function render(result) {
   ];
 
   outputs.detailList.innerHTML = details
-    .map(([label, value]) => label === "separator"
-      ? `<dt class="detail-separator"></dt>`
-      : `<dt>${label}</dt><dd>${value}</dd>`)
+    .map(([label, value]) => {
+      if (label === "separator") return `<dt class="detail-separator"></dt>`;
+      if (label === "group") return `<dt class="detail-group">${value}</dt>`;
+      return `<dt>${label}</dt><dd>${value}</dd>`;
+    })
     .join("");
 
   outputs.message.textContent = makeMessage(result);
   outputs.diagram.innerHTML = makeDiagramForView(result);
+  adjustCurrentDiagramLabelBadges();
   applyDiagramTransform();
   updateDiagramViewButtons();
   outputs.diagramCaption.textContent = "";
@@ -455,9 +469,20 @@ function setDiagramViewMode(mode) {
   diagramViewMode = mode;
   if (currentResult) {
     outputs.diagram.innerHTML = makeDiagramForView(currentResult);
+    adjustCurrentDiagramLabelBadges();
   }
   resetDiagramView();
   updateDiagramViewButtons();
+}
+
+function adjustCurrentDiagramLabelBadges() {
+  const svg = outputs.diagram.querySelector("svg");
+  LeafSpineDiagram.adjustLabelBadges(svg);
+  if (document.fonts?.ready) {
+    document.fonts.ready.then(() => {
+      LeafSpineDiagram.adjustLabelBadges(outputs.diagram.querySelector("svg"));
+    });
+  }
 }
 
 function makeDiagramForView(result) {
@@ -662,10 +687,10 @@ function makeMessage({ input, best }) {
   const parts = [];
   if (input.useMultiPlanar || input.useMultiPods) {
     if (input.useMultiPods) {
-      parts.push(`Multi-pods design으로 Pod당 ${best.podServerCount}대 기준 ${best.multiPodCount}개의 독립 pod를 계산했습니다.`);
+      parts.push(`Multi-pods design으로 Pod당 노드 ${best.podServerCount}대 기준 ${best.multiPodCount}개의 독립 pod를 계산했습니다.`);
     }
     if (input.useMultiPlanar) {
-      parts.push("Multi-planar design으로 각 pod 또는 전체 fabric을 2개의 독립 plane으로 구성했습니다. 서버 NIC 포트는 Twin-port Transceiver로 논리 분리되어 각 plane에 연결됩니다.");
+      parts.push("Multi-planar design으로 각 pod 또는 전체 fabric을 2개의 독립 plane으로 구성했습니다. 노드 NIC 포트는 Twin-port Transceiver로 논리 분리되어 각 plane에 연결됩니다.");
     }
   } else if (input.mode === "nonblocking") {
     parts.push("Non-blocking 조건으로 Leaf의 업링크 대역폭이 다운링크 대역폭 이상이 되도록 계산했습니다.");
@@ -674,7 +699,7 @@ function makeMessage({ input, best }) {
   }
   const leafPortSpeed = input.leafSwitchLinkSpeed || input.switchLinkSpeed;
   if (input.serverLinkSpeed > leafPortSpeed) {
-    parts.push("서버 링크 스피드가 Leaf 스위치 포트 스피드보다 높아 실제 구성에서는 포트 호환성을 별도로 확인해야 합니다.");
+    parts.push("노드 링크 스피드가 Leaf 포트 스피드보다 높아 실제 구성에서는 포트 호환성을 별도로 확인해야 합니다.");
   }
   if (best.leafCount === best.switchPortCapacity) {
     parts.push("Spine 포트가 모두 Leaf 연결에 사용되므로 확장 여유가 거의 없습니다.");

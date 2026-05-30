@@ -1,6 +1,6 @@
 # Leaf-Spine 설계 계산기
 
-서버 NIC와 네트워크 스위치 조건을 입력하면 Leaf-Spine 토폴로지의 Leaf/Spine 스위치 수, oversubscription 비율, 구성도, 포트맵, 리포트를 계산하는 정적 웹 애플리케이션입니다.
+노드 NIC와 네트워크 스위치 조건을 입력하면 Leaf-Spine 토폴로지의 Leaf/Spine 스위치 수, oversubscription 비율, 구성도, 포트맵, 리포트를 계산하는 정적 웹 애플리케이션입니다.
 
 ## 실행
 
@@ -58,13 +58,13 @@ LICENSE
 ## 계산 기준
 
 - 기본 Leaf-Spine 구성은 모든 Leaf가 모든 Spine에 연결되는 full-mesh 조건을 기준으로 합니다.
-- Non-blocking은 Leaf 업링크 대역폭이 서버 다운링크 대역폭 이상이 되도록 계산합니다.
+- Non-blocking은 Leaf 업링크 대역폭이 노드 다운링크 대역폭 이상이 되도록 계산합니다.
 - Leaf와 Spine은 이중화와 고가용성을 위해 각각 최소 2대 이상으로 계산합니다.
-- Oversubscription 구성에서도 서버 NIC는 모두 Leaf에 연결하고, Leaf-Spine 업링크 수와 대역폭을 줄여 목표 비율을 맞춥니다.
+- Oversubscription 구성에서도 노드 NIC는 모두 Leaf에 연결하고, Leaf-Spine 업링크 수와 대역폭을 줄여 목표 비율을 맞춥니다.
 - Twin-port Transceiver를 사용하면 스위치 물리 포트를 논리 포트 2개로 계산합니다.
 - Leaf-Spine 업링크에 Twin-port Transceiver를 사용하지 않는 옵션을 켜면 업링크는 입력된 포트당 링크 스피드를 그대로 사용합니다.
-- Multi-planar Design은 서버 NIC 포트를 Twin-port Transceiver로 2개의 논리 링크로 분리하고, 두 링크를 각각 독립된 Leaf-Spine plane에 연결하는 방식으로 계산합니다.
-- Multi-pods Design은 입력한 Pod당 서버 수를 기준으로 서버와 Leaf-Spine fabric을 독립 pod 그룹으로 나누고, 각 pod에 동일한 설계 기준을 적용합니다.
+- Multi-planar Design은 노드 NIC 포트를 Twin-port Transceiver로 2개의 논리 링크로 분리하고, 두 링크를 각각 독립된 Leaf-Spine plane에 연결하는 방식으로 계산합니다.
+- Multi-pods Design은 입력한 Pod당 노드 수를 기준으로 노드와 Leaf-Spine fabric을 독립 pod 그룹으로 나누고, 각 pod에 동일한 설계 기준을 적용합니다.
 
 ## 테스트
 

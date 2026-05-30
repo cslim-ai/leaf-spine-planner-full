@@ -41,8 +41,8 @@ function buildPortMap({ input, best }) {
         serverLeafRows.push({
           podIndex,
           pod: podLabel(podIndex, podCount, input, best),
-          section: "Server-Leaf",
-          sourceDevice: `Server ${serverIndex + 1}`,
+          section: "Node-Leaf",
+          sourceDevice: `Node ${serverIndex + 1}`,
           sourcePort: podCount > 1 ? `NIC ${nicIndex + 1} ${podLabel(podIndex, podCount, input, best)}` : `NIC ${nicIndex + 1}`,
           targetDevice: leafLabel(leafIndex, perPodLeafs, podCount, input, best),
           targetPort: switchDownlinkPortLabel(leafLogicalPort, serverLeafTwinFactor),
@@ -82,8 +82,8 @@ function buildPortMap({ input, best }) {
     input,
     best,
     summary: [
-      ["Servers", input.serverCount.toLocaleString()],
-      ["Server NIC Ports", input.serverNicPorts.toLocaleString()],
+      ["Nodes", input.serverCount.toLocaleString()],
+      ["Node NIC Ports", input.serverNicPorts.toLocaleString()],
       ["Leaf Switches", best.leafCount.toLocaleString()],
       ["Spine Switches", best.spines.toLocaleString()],
       [input.useMultiPods && input.useMultiPlanar ? "Pod/Plane Groups" : (input.useMultiPods ? "Pods" : "Planes"), podCount.toLocaleString()],
@@ -408,7 +408,7 @@ function makePortMapHtml(portMap) {
         { text: "#0e7490", bg: "#ecfeff" },
       ];
       function sectionClass(section) {
-        if (section === "Server-Leaf") return "section-server-leaf";
+        if (section === "Node-Leaf") return "section-server-leaf";
         if (section === "Leaf-Spine") return "section-leaf-spine";
         return "";
       }
@@ -490,7 +490,7 @@ function makePortMapHtml(portMap) {
 }
 
 function portMapSectionClass(section) {
-  if (section === "Server-Leaf") return "section-server-leaf";
+  if (section === "Node-Leaf") return "section-server-leaf";
   if (section === "Leaf-Spine") return "section-leaf-spine";
   return "";
 }
@@ -564,7 +564,7 @@ function portMapTableHeaderHtml() {
 }
 
 function portMapExcelRowHtml(row, index) {
-  const sectionClass = row.section === "Server-Leaf" ? "server-leaf" : "leaf-spine";
+  const sectionClass = row.section === "Node-Leaf" ? "server-leaf" : "leaf-spine";
   return `<tr>${portMapRowValues(row, index).map((value, cellIndex) => {
     const className = cellIndex === 1 ? ` class="${sectionClass}"` : "";
     return `<td${className}>${escapeXml(value)}</td>`;
@@ -605,7 +605,7 @@ function xlsxSheetXml(portMap) {
 function xlsxCell(value, rowIndex, colIndex, sourceRow) {
   const ref = `${xlsxColumnName(colIndex)}${rowIndex + 1}`;
   let style = rowIndex === 0 ? 1 : 0;
-  if (sourceRow && colIndex === 1) style = sourceRow.section === "Server-Leaf" ? 2 : 3;
+  if (sourceRow && colIndex === 1) style = sourceRow.section === "Node-Leaf" ? 2 : 3;
   if (sourceRow && colIndex === 2 && sourceRow.pod !== "-") style = 4 + ((sourceRow.podIndex || 0) % 6);
   return `<c r="${ref}" t="inlineStr" s="${style}"><is><t>${escapeXml(value)}</t></is></c>`;
 }
@@ -763,7 +763,7 @@ function addPortMapPptTable(slide, rows, startIndex, y) {
     ...rows.map((row, rowIndex) => portMapRowValues(row, startIndex + rowIndex).map((value, cellIndex) => {
       const isSection = cellIndex === 1;
       const isPod = cellIndex === 2 && row.pod !== "-";
-      const sectionColor = row.section === "Server-Leaf" ? "1D4ED8" : "8A4B12";
+      const sectionColor = row.section === "Node-Leaf" ? "1D4ED8" : "8A4B12";
       const tone = isPod ? podTone(row.podIndex || 0) : null;
       return {
         text: String(value),
@@ -856,7 +856,7 @@ function portMapTableCellXml(row, value, cellIndex) {
     color = "1D4ED8";
     bold = true;
   } else if (cellIndex === 1) {
-    color = row.source.section === "Server-Leaf" ? "1D4ED8" : "8A4B12";
+    color = row.source.section === "Node-Leaf" ? "1D4ED8" : "8A4B12";
     bold = true;
   } else if (cellIndex === 2 && row.source.pod !== "-") {
     const tone = podTone(row.source.podIndex || 0);

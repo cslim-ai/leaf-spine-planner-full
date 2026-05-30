@@ -326,7 +326,7 @@ const LeafSpineCalculator = (() => {
       return infeasibleResult(
         { ...input, useTwinPort: true, podServerCount, podCount: planeCount, planeCount },
         totalServerLinks,
-        `Plane당 서버 ${podServerCount.toLocaleString()}대 기준 구성이 불가능합니다.\n${podResult.infeasibleReason || ""}`.trim(),
+        `Plane당 노드 ${podServerCount.toLocaleString()}대 기준 구성이 불가능합니다.\n${podResult.infeasibleReason || ""}`.trim(),
       );
     }
 
@@ -375,7 +375,7 @@ const LeafSpineCalculator = (() => {
       return infeasibleResult(
         { ...input, podServerCount, podCount: multiPodCount, multiPodCount, planeCount },
         totalServerLinks,
-        `Pod당 서버 ${podServerCount.toLocaleString()}대 기준 구성이 불가능합니다.\n${podResult.infeasibleReason || ""}`.trim(),
+        `Pod당 노드 ${podServerCount.toLocaleString()}대 기준 구성이 불가능합니다.\n${podResult.infeasibleReason || ""}`.trim(),
       );
     }
 
@@ -424,13 +424,13 @@ const LeafSpineCalculator = (() => {
       const requiredDownlinkPorts = Number.isFinite(stats.minPhysicalDownlinkPorts)
         ? stats.minPhysicalDownlinkPorts
         : stats.maxPhysicalDownlinkPorts;
-      reasons.push(`Leaf 서버 다운링크 포트 부족: 서버 연결 링크 ${totalServerLinks.toLocaleString()}개를 Leaf에 분산해도 Leaf당 최소 ${requiredDownlinkPorts.toLocaleString()}개의 물리 포트가 필요합니다. 현재 Leaf 스위치는 ${leafPorts.toLocaleString()}포트입니다.`);
+      reasons.push(`Leaf 노드 다운링크 포트 부족: 노드 연결 링크 ${totalServerLinks.toLocaleString()}개를 Leaf에 분산해도 Leaf당 최소 ${requiredDownlinkPorts.toLocaleString()}개의 물리 포트가 필요합니다. 현재 Leaf는 ${leafPorts.toLocaleString()}포트입니다.`);
     }
     if (stats.leafTotalPortShortage > 0 && stats.leafTotalFit === 0) {
       const requiredLeafPorts = Number.isFinite(stats.minUsedPortsPerLeaf)
         ? stats.minUsedPortsPerLeaf
         : stats.maxUsedPortsPerLeaf;
-      reasons.push(`Leaf 총 포트 부족: Leaf당 서버 다운링크와 Spine 업링크를 합산하면 최소 ${requiredLeafPorts.toLocaleString()}개의 물리 포트가 필요합니다. 현재 Leaf 스위치는 ${leafPorts.toLocaleString()}포트입니다.`);
+      reasons.push(`Leaf 총 포트 부족: Leaf당 노드 다운링크와 Spine 업링크를 합산하면 최소 ${requiredLeafPorts.toLocaleString()}개의 물리 포트가 필요합니다. 현재 Leaf는 ${leafPorts.toLocaleString()}포트입니다.`);
     }
     if (stats.spinePortShortage > 0 || stats.fullMeshShortage > 0) {
       const spineDetail = stats.maxUsedPortsPerSpine > 0

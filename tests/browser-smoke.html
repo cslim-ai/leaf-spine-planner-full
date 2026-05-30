@@ -90,7 +90,7 @@
         assert(reportSvg.includes('width="1320"') && reportSvg.includes('height="1867"'), "report SVG keeps A4 portrait ratio");
 
         const portMap = LeafSpinePortMap.build(currentResult);
-        assert(portMap.serverLeafRows.length === 64, "server-leaf port map rows generated");
+        assert(portMap.serverLeafRows.length === 64, "node-leaf port map rows generated");
         assert(portMap.leafSpineRows.length > 0, "leaf-spine port map rows generated");
         const xlsxBlob = LeafSpinePortMap.buildXlsx(portMap);
         assert(xlsxBlob.size > 0, "port map XLSX blob generated");
