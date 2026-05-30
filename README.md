@@ -21,3 +21,35 @@
 - Leaf-Spine 사이의 병렬 링크 수를 선 개수로 표현합니다.
 - 구성도는 고해상도 PNG 또는 PowerPoint에서 편집 가능한 PPTX 도형 파일로 다운로드할 수 있습니다.
 - 결과 상세에는 서버당 대역폭과 총 서버 대역폭을 별도로 표시합니다.
+
+## 계산 로직 테스트
+
+계산 로직은 `calculator.js`에 분리되어 있고, 기본 검증 케이스는 `tests/calculator.test.js`에 있습니다. 구성도 렌더링과 토폴로지 PPT export는 `diagram.js`, PDF 리포트 export는 `report.js`, 공통 export 로더는 `export-utils.js`, 포트맵 창과 포트맵 Excel/PPT export는 `portmap.js`에 분리되어 있습니다.
+
+Node.js가 PATH에 잡혀 있으면 아래 명령으로 테스트합니다.
+
+```powershell
+node tests/calculator.test.js
+```
+
+현재 테스트는 HA 최소 Leaf/Spine 수, Twin-port Transceiver 계산, 288대 서버 구성의 균등 Leaf-Spine 링크, multi-planar pod 계산, oversubscription에서 서버 NIC 링크가 줄지 않는 조건을 확인합니다.
+
+## GitHub 버전 관리 루틴
+
+작업 후 아래 순서로 변경 내용을 확인하고 GitHub에 올립니다.
+
+```powershell
+git status
+git add .
+git commit -m "변경 내용을 설명하는 메시지"
+git push
+```
+
+Codex 환경에서 `git` 명령이 PATH에 잡히지 않으면 Windows 기본 설치 경로를 직접 호출할 수 있습니다.
+
+```powershell
+& "C:\Program Files\Git\cmd\git.exe" status
+& "C:\Program Files\Git\cmd\git.exe" add .
+& "C:\Program Files\Git\cmd\git.exe" commit -m "변경 내용을 설명하는 메시지"
+& "C:\Program Files\Git\cmd\git.exe" push
+```
