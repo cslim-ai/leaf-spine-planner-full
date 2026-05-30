@@ -115,21 +115,21 @@ outputs.zoomFit.addEventListener("click", () => fitDiagramView());
 outputs.viewFull.addEventListener("click", () => setDiagramViewMode("full"));
 outputs.viewWrapped.addEventListener("click", () => setDiagramViewMode("wrapped"));
 outputs.viewSummary.addEventListener("click", () => setDiagramViewMode("summary"));
-outputs.openDiagramWindow.addEventListener("click", () => openDiagramWindow());
-outputs.exportSvg.addEventListener("click", () => exportDiagramSvg());
-outputs.exportPng.addEventListener("click", () => exportDiagramPng());
-outputs.exportPptx.addEventListener("click", () => exportDiagramPptx());
-outputs.openPortMapWindow.addEventListener("click", () => openPortMapWindow());
-outputs.exportPdf.addEventListener("click", () => exportPagePdf());
+outputs.openDiagramWindow.addEventListener("click", () => LeafSpineDiagram.openWindow());
+outputs.exportSvg.addEventListener("click", () => LeafSpineDiagram.exportSvg());
+outputs.exportPng.addEventListener("click", () => LeafSpineDiagram.exportPng());
+outputs.exportPptx.addEventListener("click", () => LeafSpineDiagram.exportPptx());
+outputs.openPortMapWindow.addEventListener("click", () => LeafSpinePortMap.openWindow());
+outputs.exportPdf.addEventListener("click", () => LeafSpineReport.exportPdf());
 outputs.resetInputs.addEventListener("click", () => resetInputsToDefaults());
 window.addEventListener("message", (event) => {
   if (event.data?.type === "leaf-spine-export-pptx") {
-    exportDiagramPptx(event.data.viewMode || diagramViewMode);
+    LeafSpineDiagram.exportPptx(event.data.viewMode || diagramViewMode);
   }
   if (event.data?.type === "leaf-spine-export-port-map") {
     const actions = {
-      excel: exportPortMapExcel,
-      ppt: exportPortMapPpt,
+      excel: LeafSpinePortMap.exportExcel,
+      ppt: LeafSpinePortMap.exportPpt,
     };
     actions[event.data.format]?.();
   }
@@ -347,13 +347,11 @@ function setDiagramViewMode(mode) {
 }
 
 function makeDiagramForView(result) {
-  return makeDiagramFromGeometry(getDiagramGeometryForView(result, diagramViewMode));
+  return LeafSpineDiagram.makeForView(result, diagramViewMode);
 }
 
 function getDiagramGeometryForView(result, viewMode) {
-  if (viewMode === "wrapped") return getPptDiagramGeometry(result);
-  if (viewMode === "summary") return getSummaryDiagramGeometry(result);
-  return getDiagramGeometry(result);
+  return LeafSpineDiagram.getGeometryForView(result, viewMode);
 }
 
 function updateDiagramViewButtons() {

@@ -568,7 +568,7 @@ async function exportDiagramPptx(viewMode = diagramViewMode) {
   if (!currentResult) return;
 
   try {
-    await ensurePptxGenLoaded();
+    await LeafSpineExportUtils.ensurePptxGenLoaded();
     const pptx = buildPptxWithPptxGen(currentResult, viewMode);
     const blob = await pptx.write({ outputType: "blob", compression: true });
     downloadBlob(blob, exportFilename("leaf-spine-topology", "pptx"));
@@ -1608,3 +1608,12 @@ function corePropsXml() {
   const now = new Date().toISOString();
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Leaf-Spine Topology</dc:title><dc:creator>임채성</dc:creator><cp:lastModifiedBy>임채성</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>`;
 }
+
+const LeafSpineDiagram = {
+  makeForView: (result, viewMode) => makeDiagramFromGeometry(getDiagramGeometryForView(result, viewMode)),
+  getGeometryForView: (result, viewMode) => getDiagramGeometryForView(result, viewMode),
+  exportPng: exportDiagramPng,
+  exportSvg: exportDiagramSvg,
+  exportPptx: exportDiagramPptx,
+  openWindow: openDiagramWindow,
+};

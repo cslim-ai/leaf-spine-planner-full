@@ -34,6 +34,8 @@ node tests/calculator.test.js
 
 현재 테스트는 HA 최소 Leaf/Spine 수, Twin-port Transceiver 계산, 288대 서버 구성의 균등 Leaf-Spine 링크, multi-planar pod 계산, oversubscription에서 서버 NIC 링크가 줄지 않는 조건을 확인합니다.
 
+브라우저 기능과 export smoke test는 `tests/browser-smoke.html`을 브라우저에서 열어 확인합니다. 이 테스트는 기본 계산, 구성도 SVG 렌더링, PDF 리포트 SVG, 포트맵 XLSX, 토폴로지/포트맵 PPTX blob 생성을 점검합니다.
+
 ## GitHub 버전 관리 루틴
 
 작업 후 아래 순서로 변경 내용을 확인하고 GitHub에 올립니다.

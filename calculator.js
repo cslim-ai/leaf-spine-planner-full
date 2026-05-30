@@ -21,6 +21,11 @@ const LeafSpineCalculator = (() => {
       spinePortShortage: 0,
       fullMeshShortage: 0,
       checkedLeafs: 0,
+      maxPhysicalDownlinkPorts: 0,
+      maxUsedPortsPerLeaf: 0,
+      maxUsedPortsPerSpine: 0,
+      maxLeafCountForFullMesh: 0,
+      minRequiredSpinesForFullMesh: 0,
     };
 
     for (let leafCount = minimumLeafs; leafCount <= Math.max(maxLeafs, minimumLeafs); leafCount += 1) {
@@ -29,6 +34,7 @@ const LeafSpineCalculator = (() => {
       const physicalDownlinkPorts = input.useTwinPort
         ? Math.ceil(downlinks / 2)
         : downlinks;
+      failureStats.maxPhysicalDownlinkPorts = Math.max(failureStats.maxPhysicalDownlinkPorts, physicalDownlinkPorts);
       if (physicalDownlinkPorts >= input.switchPorts) {
         failureStats.leafServerPortShortage += 1;
         continue;
@@ -42,6 +48,7 @@ const LeafSpineCalculator = (() => {
       const physicalUplinkPortsPerLeaf = Math.ceil(uplinksPerLeaf / uplinkTwinFactor);
       const usedPortsPerLeaf = physicalDownlinkPorts + physicalUplinkPortsPerLeaf;
       const logicalPortsPerLeaf = downlinks + uplinksPerLeaf;
+      failureStats.maxUsedPortsPerLeaf = Math.max(failureStats.maxUsedPortsPerLeaf, usedPortsPerLeaf);
       if (usedPortsPerLeaf > input.switchPorts) {
         failureStats.leafTotalPortShortage += 1;
         continue;
@@ -75,10 +82,16 @@ const LeafSpineCalculator = (() => {
       for (let spines = minimumFeasibleSpines; spines <= uplinksPerLeaf; spines += 1) {
         if (leafCount > input.switchPorts * uplinkTwinFactor * spines) {
           failureStats.fullMeshShortage += 1;
+          failureStats.maxLeafCountForFullMesh = Math.max(failureStats.maxLeafCountForFullMesh, leafCount);
+          failureStats.minRequiredSpinesForFullMesh = Math.max(
+            failureStats.minRequiredSpinesForFullMesh,
+            Math.ceil(leafCount / (input.switchPorts * uplinkTwinFactor)),
+          );
           continue;
         }
         const logicalLinksPerSpine = Math.ceil(totalLeafUplinks / spines);
         const usedPortsPerSpine = Math.ceil(logicalLinksPerSpine / uplinkTwinFactor);
+        failureStats.maxUsedPortsPerSpine = Math.max(failureStats.maxUsedPortsPerSpine, usedPortsPerSpine);
         if (usedPortsPerSpine > input.switchPorts) {
           failureStats.spinePortShortage += 1;
           continue;
@@ -295,13 +308,19 @@ const LeafSpineCalculator = (() => {
     const reasons = [];
 
     if (stats.leafServerPortShortage > 0) {
-      reasons.push(`서버 연결 포트 ${totalServerLinks.toLocaleString()}개를 Leaf에 분산해도 일부 Leaf의 서버 다운링크가 스위치 물리 포트 ${input.switchPorts.toLocaleString()}개 이상을 요구합니다.`);
+      reasons.push(`서버 연결 포트 ${totalServerLinks.toLocaleString()}개를 Leaf에 분산해도 일부 Leaf의 서버 다운링크가 물리 포트 ${stats.maxPhysicalDownlinkPorts.toLocaleString()}개를 요구합니다. 현재 스위치는 ${input.switchPorts.toLocaleString()}포트입니다.`);
     }
     if (stats.leafTotalPortShortage > 0) {
-      reasons.push(`Leaf에서 서버 다운링크와 Spine 업링크를 동시에 수용할 물리 포트가 부족합니다.`);
+      reasons.push(`Leaf당 서버 다운링크와 Spine 업링크 합산 필요 포트가 최대 ${stats.maxUsedPortsPerLeaf.toLocaleString()}개입니다. 현재 스위치는 ${input.switchPorts.toLocaleString()}포트입니다.`);
     }
     if (stats.spinePortShortage > 0 || stats.fullMeshShortage > 0) {
-      reasons.push(`모든 Leaf가 모든 Spine에 연결되는 조건에서 Spine당 Leaf 링크가 스위치 포트 용량을 초과합니다.`);
+      const spineDetail = stats.maxUsedPortsPerSpine > 0
+        ? `Spine당 필요 포트가 최대 ${stats.maxUsedPortsPerSpine.toLocaleString()}개입니다. `
+        : "";
+      const fullMeshDetail = stats.minRequiredSpinesForFullMesh > 0
+        ? `Full mesh 조건상 최소 ${stats.minRequiredSpinesForFullMesh.toLocaleString()}대 이상의 Spine이 필요합니다. `
+        : "";
+      reasons.push(`${spineDetail}${fullMeshDetail}현재 스위치는 Spine당 ${input.switchPorts.toLocaleString()}포트를 사용할 수 있습니다.`);
     }
     if (stats.bandwidthMismatch > 0) {
       reasons.push(`${modeText} 대역폭 조건을 만족하는 Leaf-Spine 업링크 수를 만들 수 없습니다.`);

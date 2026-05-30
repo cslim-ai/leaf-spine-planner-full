@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>Leaf-Spine Browser Smoke Test</title>
+  </head>
+  <body>
+    <form id="networkForm">
+      <input id="serverCount" value="8" />
+      <input id="serverNicPorts" value="8" />
+      <input id="serverLinkSpeed" value="400" />
+      <input id="switchPorts" value="64" />
+      <input id="switchLinkSpeed" value="400" />
+      <input id="useTwinPort" type="checkbox" />
+      <input id="disableUplinkTwinPort" type="checkbox" />
+      <input id="targetOversub" value="3" />
+      <input id="useMultiPlanar" type="checkbox" />
+      <input id="podServerCount" value="64" />
+      <input type="radio" name="topologyMode" value="nonblocking" checked />
+      <input type="radio" name="topologyMode" value="oversubscribed" />
+    </form>
+    <div id="oversubField"></div>
+    <div id="podField"></div>
+    <span id="twinPortLabel"></span>
+    <span id="leafCount"></span>
+    <span id="spineCount"></span>
+    <span id="oversubRatio"></span>
+    <span id="totalSwitches"></span>
+    <dl id="detailList"></dl>
+    <span id="calculationStatus" class="hidden"></span>
+    <p id="message"></p>
+    <div id="diagram"></div>
+    <p id="diagramCaption"></p>
+    <button id="viewFull" type="button"></button>
+    <button id="viewWrapped" type="button"></button>
+    <button id="viewSummary" type="button"></button>
+    <button id="openDiagramWindow" type="button"></button>
+    <button id="zoomIn" type="button"></button>
+    <button id="zoomOut" type="button"></button>
+    <button id="zoomReset" type="button"></button>
+    <button id="zoomCenter" type="button"></button>
+    <button id="zoomFit" type="button"></button>
+    <button id="exportSvg" type="button"></button>
+    <button id="exportPng" type="button"></button>
+    <button id="exportPptx" type="button"></button>
+    <button id="openPortMapWindow" type="button"></button>
+    <button id="exportPdf" type="button"></button>
+    <button id="resetInputs" type="button"></button>
+    <pre id="result">running</pre>
+
+    <script src="../calculator.js"></script>
+    <script src="../export-utils.js"></script>
+    <script src="../diagram.js"></script>
+    <script src="../report.js"></script>
+    <script src="../app.js"></script>
+    <script src="../portmap.js"></script>
+    <script>
+      (async () => {
+        const checks = [];
+        function assert(condition, message) {
+          if (!condition) throw new Error(message);
+          checks.push(message);
+        }
+
+        assert(typeof LeafSpineCalculator.calculate === "function", "calculator namespace is available");
+        assert(typeof LeafSpineDiagram.exportSvg === "function", "diagram namespace is available");
+        assert(typeof LeafSpineReport.makeSvg === "function", "report namespace is available");
+        assert(typeof LeafSpinePortMap.build === "function", "port map namespace is available");
+        assert(currentResult && currentResult.feasible, "default calculation is feasible");
+        assert(document.querySelector("#diagram svg"), "diagram SVG rendered");
+
+        const reportSvg = LeafSpineReport.makeSvg("2026-05-30 00:00:00");
+        assert(reportSvg.includes('width="1320"') && reportSvg.includes('height="1867"'), "report SVG keeps A4 portrait ratio");
+
+        const portMap = LeafSpinePortMap.build(currentResult);
+        assert(portMap.serverLeafRows.length === 64, "server-leaf port map rows generated");
+        assert(portMap.leafSpineRows.length > 0, "leaf-spine port map rows generated");
+        const xlsxBlob = LeafSpinePortMap.buildXlsx(portMap);
+        assert(xlsxBlob.size > 0, "port map XLSX blob generated");
+
+        await LeafSpineExportUtils.ensurePptxGenLoaded();
+        const topologyPptx = buildPptxWithPptxGen(currentResult, "summary");
+        const topologyBlob = await topologyPptx.write({ outputType: "blob", compression: true });
+        assert(topologyBlob.size > 0, "topology PPTX blob generated");
+        const portMapPptx = LeafSpinePortMap.buildPptx(portMap, "2026-05-30 00:00:00");
+        const portMapBlob = await portMapPptx.write({ outputType: "blob" });
+        assert(portMapBlob.size > 0, "port map PPTX blob generated");
+
+        document.querySelector("#result").textContent = "PASS\n" + checks.join("\n");
+        document.documentElement.dataset.testStatus = "pass";
+      })().catch((error) => {
+        document.querySelector("#result").textContent = "FAIL\n" + error.stack;
+        document.documentElement.dataset.testStatus = "fail";
+      });
+    </script>
+  </body>
+</html>

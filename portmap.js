@@ -124,6 +124,7 @@ function makePortMapHtml(portMap) {
   const warning = rows.length > maxRowsWithoutWarning
     ? `<p class="notice">포트맵 행이 ${rows.length.toLocaleString()}개입니다. 브라우저에서 검색은 가능하지만, 대규모 구성에서는 표시가 다소 느릴 수 있습니다.</p>`
     : "";
+  const serializedRows = JSON.stringify(rows);
   return `<!doctype html>
 <html lang="ko">
   <head>
@@ -312,25 +313,57 @@ function makePortMapHtml(portMap) {
               <th>그룹</th>
             </tr>
           </thead>
-          <tbody>
-            ${rows.map((row, index) => `
-              <tr>
-                <td>${index + 1}</td>
-                <td class="section ${portMapSectionClass(row.section)}">${escapeXml(row.section)}</td>
-                <td class="pod-cell" style="${portMapPodStyle(row)}">${escapeXml(row.pod)}</td>
-                <td>${escapeXml(row.sourceDevice)}</td>
-                <td>${escapeXml(row.sourcePort)}</td>
-                <td>${escapeXml(row.targetDevice)}</td>
-                <td>${escapeXml(row.targetPort)}</td>
-                <td>${escapeXml(row.speed)}</td>
-                <td>${escapeXml(row.group)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
+          <tbody id="portMapBody"></tbody>
         </table>
       </div>
     </main>
     <script>
+      const portMapRows = ${serializedRows};
+      const tbody = document.querySelector("#portMapBody");
+      const podTones = [
+        { text: "#1d4ed8", bg: "#eff6ff" },
+        { text: "#047857", bg: "#ecfdf5" },
+        { text: "#8a4b12", bg: "#fff7ed" },
+        { text: "#6d28d9", bg: "#f5f3ff" },
+        { text: "#be123c", bg: "#fff1f2" },
+        { text: "#0e7490", bg: "#ecfeff" },
+      ];
+      function sectionClass(section) {
+        if (section === "Server-Leaf") return "section-server-leaf";
+        if (section === "Leaf-Spine") return "section-leaf-spine";
+        return "";
+      }
+      function appendCell(tr, value, className = "", style = "") {
+        const td = document.createElement("td");
+        if (className) td.className = className;
+        if (style) td.setAttribute("style", style);
+        td.textContent = value;
+        tr.appendChild(td);
+      }
+      function renderRowsChunk(start = 0) {
+        const fragment = document.createDocumentFragment();
+        const end = Math.min(start + 600, portMapRows.length);
+        for (let index = start; index < end; index += 1) {
+          const row = portMapRows[index];
+          const tr = document.createElement("tr");
+          const tone = podTones[(row.podIndex || 0) % podTones.length];
+          appendCell(tr, index + 1);
+          appendCell(tr, row.section, "section " + sectionClass(row.section));
+          appendCell(tr, row.pod, "pod-cell", row.pod === "-" ? "" : "color:" + tone.text + "; background:" + tone.bg + ";");
+          appendCell(tr, row.sourceDevice);
+          appendCell(tr, row.sourcePort);
+          appendCell(tr, row.targetDevice);
+          appendCell(tr, row.targetPort);
+          appendCell(tr, row.speed);
+          appendCell(tr, row.group);
+          fragment.appendChild(tr);
+        }
+        tbody.appendChild(fragment);
+        if (end < portMapRows.length) {
+          requestAnimationFrame(() => renderRowsChunk(end));
+        }
+      }
+      renderRowsChunk();
       function runExport(name, format) {
         if (!window.opener) {
           alert("메인 페이지와 연결되어 있지 않아 export를 실행할 수 없습니다.");
@@ -387,7 +420,7 @@ function exportPortMapExcel() {
 async function exportPortMapPpt() {
   if (!currentResult) return;
   try {
-    await ensurePptxGenLoaded();
+    await LeafSpineExportUtils.ensurePptxGenLoaded();
     const generatedAt = makeExportTimestamp();
     const pptx = buildPortMapPptx(buildPortMap(currentResult), generatedAt.display);
     const blob = await pptx.write({ outputType: "blob" });
@@ -764,3 +797,12 @@ function portMapPptCorePropsXml() {
   const now = new Date().toISOString();
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Leaf-Spine Port Map</dc:title><dc:creator>임채성</dc:creator><cp:lastModifiedBy>임채성</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>`;
 }
+
+const LeafSpinePortMap = {
+  openWindow: openPortMapWindow,
+  build: buildPortMap,
+  exportExcel: exportPortMapExcel,
+  exportPpt: exportPortMapPpt,
+  buildXlsx: buildPortMapXlsx,
+  buildPptx: buildPortMapPptx,
+};

@@ -47,3 +47,7 @@ function loadScriptOnce(src) {
     document.head.appendChild(script);
   });
 }
+
+const LeafSpineExportUtils = {
+  ensurePptxGenLoaded,
+};

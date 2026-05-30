@@ -296,3 +296,8 @@ function buildPdf(objects) {
 function byteLength(text) {
   return new TextEncoder().encode(text).length;
 }
+
+const LeafSpineReport = {
+  exportPdf: exportPagePdf,
+  makeSvg: makeReportSvg,
+};

@@ -81,6 +81,10 @@ function withInput(overrides) {
   const result = calculate(input);
   assert(!result.feasible, "1296-server input without uplink twin-port should be infeasible");
   assert(result.infeasibleReason, "infeasible result should include a reason");
+  assert(
+    /필요 포트|최소|현재 스위치/.test(result.infeasibleReason),
+    "infeasible reason should include numeric capacity context",
+  );
 }
 
 {
