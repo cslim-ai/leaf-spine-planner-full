@@ -140,6 +140,14 @@ http://127.0.0.1:4173/tests/browser-smoke.html
 
 GitHub Pages에 배포하는 경우 저장소의 Pages 설정에서 배포 브랜치와 루트 경로를 지정하면 됩니다.
 
+## 라이선스
+
+Copyright © 2026 Chaeseong Lim. All Rights Reserved.
+
+이 소프트웨어와 그 기반 알고리즘은 명시적인 서면 허가 없이 복사, 수정, 배포, 리버스 엔지니어링하거나 파생 저작물을 만드는 데 사용할 수 없습니다.
+
+자세한 내용은 [LICENSE](LICENSE)를 확인하세요.
+
 ## 유지보수 참고
 
 - 외부 CDN 의존성을 추가하지 않습니다.
