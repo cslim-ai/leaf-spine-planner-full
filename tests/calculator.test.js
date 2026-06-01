@@ -20,6 +20,14 @@ function assertEqual(actual, expected, message) {
   }
 }
 
+function assertNoGarbledKorean(text, message) {
+  const garbledFragments = ["媛", "몃", "뱶", "쒖", "꾩", "遺", "臾", "蹂", "섎", "낅", "덈"];
+  const found = garbledFragments.find((fragment) => text.includes(fragment));
+  if (found) {
+    throw new Error(`${message}: found ${found} in ${text}`);
+  }
+}
+
 const baseInput = {
   serverCount: 8,
   serverNicPorts: 8,
@@ -64,7 +72,8 @@ function withInput(overrides) {
   }));
   assert(!result.feasible, "custom leaf count should be infeasible when requested leaf spare ports cannot be preserved");
   assert(result.infeasibleReason.includes("Leaf"), "leaf spare port infeasible reason should identify leaf constraints");
-  assert(result.infeasibleReason.includes("예비 포트 8"), "leaf spare port infeasible reason should include the requested spare port count");
+  assert(result.infeasibleReason.includes("요청한 Leaf당 예비 포트 8개"), "leaf spare port infeasible reason should include the requested spare port count");
+  assertNoGarbledKorean(result.infeasibleReason, "leaf spare port infeasible reason should not contain garbled Korean");
 }
 
 {
@@ -88,6 +97,7 @@ function withInput(overrides) {
   const result = calculate(input);
   assert(!result.feasible, "custom spine count should be infeasible when leaf uplinks cannot full-mesh to all spines");
   assert(result.infeasibleReason.includes("Spine"), "custom infeasible reason should identify spine constraints");
+  assertNoGarbledKorean(result.infeasibleReason, "custom spine infeasible reason should not contain garbled Korean");
 }
 
 {

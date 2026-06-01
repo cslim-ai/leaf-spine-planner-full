@@ -648,8 +648,9 @@ function render(result) {
   outputs.message.textContent = message;
   outputs.message.classList.toggle(
     "is-warning",
-    message.includes("포트 호환성") || message.includes("낭비") || message.includes("절약")
-      || message.includes("compatibility") || message.includes("wasted") || message.includes("reduce"),
+    message.includes("포트 호환성") || message.includes("물리 포트 사용량") || message.includes("권장")
+      || message.includes("균등하지") || message.includes("compatibility") || message.includes("physical")
+      || message.includes("Increase") || message.includes("not evenly"),
   );
   outputs.diagram.innerHTML = makeDiagramForView(result);
   adjustCurrentDiagramLabelBadges();

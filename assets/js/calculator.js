@@ -457,7 +457,7 @@ const LeafSpineCalculator = (() => {
     const spinePorts = spineSwitchPorts(input);
     const requiredLeafSparePorts = leafMinSparePorts(input);
     const leafSpareRequirementText = requiredLeafSparePorts > 0
-      ? ` Leaf당 예비 포트 ${requiredLeafSparePorts.toLocaleString()}개를 별도로 남겨야 합니다.`
+      ? ` 요청한 Leaf당 예비 포트 ${requiredLeafSparePorts.toLocaleString()}개도 별도로 남겨야 합니다.`
       : "";
     const modeText = input.mode === "oversubscribed"
       ? `목표 1:${input.targetOversub} oversubscription`
@@ -468,13 +468,13 @@ const LeafSpineCalculator = (() => {
       const requiredDownlinkPorts = Number.isFinite(stats.minPhysicalDownlinkPorts)
         ? stats.minPhysicalDownlinkPorts
         : stats.maxPhysicalDownlinkPorts;
-      reasons.push(`Leaf 노드 다운링크 포트 부족: 노드 연결 링크 ${totalServerLinks.toLocaleString()}개를 Leaf에 분산해도 Leaf당 최소 ${requiredDownlinkPorts.toLocaleString()}개의 물리 포트가 필요합니다.${leafSpareRequirementText} 현재 Leaf는 ${leafPorts.toLocaleString()}포트입니다.`);
+      reasons.push(`Leaf 노드 연결 포트 부족: 노드 연결 링크 ${totalServerLinks.toLocaleString()}개를 Leaf에 분산해도 Leaf당 최소 ${requiredDownlinkPorts.toLocaleString()}개의 물리 포트가 필요합니다.${leafSpareRequirementText} 현재 Leaf는 Leaf당 ${leafPorts.toLocaleString()}포트입니다.`);
     }
     if (stats.leafTotalPortShortage > 0 && stats.leafTotalFit === 0) {
       const requiredLeafPorts = Number.isFinite(stats.minUsedPortsPerLeaf)
         ? stats.minUsedPortsPerLeaf
         : stats.maxUsedPortsPerLeaf;
-      reasons.push(`Leaf 총 포트 부족: Leaf당 노드 다운링크와 Spine 업링크를 합산하면 최소 ${requiredLeafPorts.toLocaleString()}개의 물리 포트가 필요합니다.${leafSpareRequirementText} 현재 Leaf는 ${leafPorts.toLocaleString()}포트입니다.`);
+      reasons.push(`Leaf 총 포트 부족: Leaf당 노드 연결 포트와 Spine 업링크 포트를 합산하면 최소 ${requiredLeafPorts.toLocaleString()}개의 물리 포트가 필요합니다.${leafSpareRequirementText} 현재 Leaf는 Leaf당 ${leafPorts.toLocaleString()}포트입니다.`);
     }
     if (stats.spinePortShortage > 0 || stats.fullMeshShortage > 0) {
       const spineDetail = stats.maxUsedPortsPerSpine > 0
@@ -483,7 +483,7 @@ const LeafSpineCalculator = (() => {
       const fullMeshDetail = Number.isFinite(stats.minRequiredSpinesForFullMesh)
         ? `모든 Leaf가 모든 Spine에 연결되는 기본 Leaf-Spine 조건을 만족하려면 최소 ${stats.minRequiredSpinesForFullMesh.toLocaleString()}대 이상의 Spine이 필요합니다. `
         : "";
-      reasons.push(`Spine 포트 또는 full-mesh 조건 부족: ${spineDetail}${fullMeshDetail}현재 Spine 스위치는 Spine당 ${spinePorts.toLocaleString()}포트를 사용할 수 있습니다.`);
+      reasons.push(`Spine 포트 또는 전체 연결 조건 부족: ${spineDetail}${fullMeshDetail}현재 Spine은 Spine당 ${spinePorts.toLocaleString()}포트까지 사용할 수 있습니다.`);
     }
     if (stats.bandwidthMismatch > 0) {
       reasons.push(`대역폭 조건 미충족: ${modeText} 조건을 만족하는 Leaf-Spine 업링크 수를 만들 수 없습니다.`);
