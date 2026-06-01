@@ -23,22 +23,6 @@ Leaf-Spine Planner는 노드, Leaf, Spine 조건을 입력해 2-tier Leaf-Spine 
 - Report export: SVG, PDF
 - Pretendard 폰트 내장으로 웹 화면, SVG/PNG export, 리포트 표시 일관성 유지
 
-## 실행 방법
-
-가장 단순한 실행 방법은 `index.html` 파일을 브라우저에서 여는 것입니다.
-
-로컬 HTTP 서버로 확인하려면 프로젝트 루트에서 다음 명령을 실행합니다.
-
-```powershell
-python -m http.server 4173 --bind 127.0.0.1
-```
-
-브라우저에서 다음 주소를 엽니다.
-
-```text
-http://127.0.0.1:4173/
-```
-
 ## 오프라인 동작 조건
 
 다음 파일이 프로젝트 내부에 있으면 인터넷 연결 없이 동작합니다.
@@ -107,32 +91,6 @@ PPT/Excel 생성은 내장된 vendor 스크립트를 사용합니다. 웹 폰트
 - `assets/js/report.js`: SVG/PDF 리포트 생성
 - `assets/js/report-layout.js`: 리포트 레이아웃 렌더링
 - `assets/js/report-font.js`: 리포트용 Pretendard 폰트 데이터
-
-## 테스트
-
-구성 산정 로직 회귀 테스트:
-
-```powershell
-node tests/calculator.test.js
-```
-
-JavaScript 문법 검사:
-
-```powershell
-Get-ChildItem assets/js/*.js | ForEach-Object { node --check $_.FullName }
-```
-
-브라우저 smoke test:
-
-```powershell
-python -m http.server 4173 --bind 127.0.0.1
-```
-
-이후 브라우저에서 다음 주소를 엽니다.
-
-```text
-http://127.0.0.1:4173/tests/browser-smoke.html
-```
 
 ## 배포
 
