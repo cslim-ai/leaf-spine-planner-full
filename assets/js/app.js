@@ -77,7 +77,9 @@ const outputs = {
 const I18N = typeof LeafSpineI18n !== "undefined" ? LeafSpineI18n : null;
 const LOCALE_STORAGE_KEY = "leaf-spine-planner-locale";
 const DISABLED_LOCALES = new Set(["en"]);
+const INPUT_RENDER_DEBOUNCE_MS = 150;
 let currentLocale = resolveInitialLocale();
+const inputRenderScheduler = LeafSpineRenderScheduler.createDebouncedScheduler(renderCurrentConfiguration, INPUT_RENDER_DEBOUNCE_MS);
 
 let diagramZoom = 1;
 let diagramPan = { x: 0, y: 0 };
@@ -131,17 +133,17 @@ fields.spineUseTwinPort.addEventListener("change", () => {
 fields.spineSameAsLeaf.addEventListener("change", () => {
   syncSpineSwitchFields();
   updateTwinPortState();
-  if (form.reportValidity()) render(calculate(readInput()));
+  renderCurrentConfigurationIfValid();
 });
 form.addEventListener("submit", (event) => {
   event.preventDefault();
-  render(calculate(readInput()));
+  renderCurrentConfigurationNow();
 });
 
 Object.values(fields).forEach((field) => {
   field.addEventListener("input", () => {
     updateTwinPortState();
-    if (form.reportValidity()) render(calculate(readInput()));
+    scheduleCurrentConfigurationRender();
   });
 });
 
@@ -201,7 +203,7 @@ window.addEventListener("resize", () => applyDiagramTransform());
 initializeLocale();
 updateMode();
 updateTwinPortState();
-render(calculate(readInput()));
+renderCurrentConfigurationNow();
 
 function setupExportMenu(menu, trigger, onSelect) {
   trigger.addEventListener("click", (event) => {
@@ -226,6 +228,31 @@ function closeExportMenus(except = null) {
   });
 }
 
+function renderCurrentConfiguration() {
+  render(calculate(readInput()));
+}
+
+function renderCurrentConfigurationNow() {
+  inputRenderScheduler.cancel();
+  renderCurrentConfiguration();
+}
+
+function renderCurrentConfigurationIfValid() {
+  if (!form.reportValidity()) {
+    inputRenderScheduler.cancel();
+    return;
+  }
+  renderCurrentConfigurationNow();
+}
+
+function scheduleCurrentConfigurationRender() {
+  if (!form.reportValidity()) {
+    inputRenderScheduler.cancel();
+    return;
+  }
+  inputRenderScheduler.schedule();
+}
+
 function initializeLocale() {
   if (outputs.languageSelect) {
     [...outputs.languageSelect.options].forEach((option) => {
@@ -244,7 +271,7 @@ function setLocale(locale) {
   }
   applyStaticText();
   updateTwinPortLabel();
-  render(calculate(readInput()));
+  renderCurrentConfigurationNow();
 }
 
 function resolveInitialLocale() {
@@ -339,7 +366,7 @@ async function handleImportInputsFile(event) {
     const imported = LeafSpineInputState.parsePayload(await file.text());
     applyInputConfig(imported);
     if (!form.reportValidity()) return;
-    render(calculate(readInput()));
+    renderCurrentConfigurationNow();
   } catch (error) {
     alert(error.message || tr("messages.importError"));
   }
@@ -470,7 +497,7 @@ function resetInputsToDefaults() {
   updateCustomSwitchState();
   updateTwinPortState();
   setDiagramViewMode("full");
-  render(calculate(readInput()));
+  renderCurrentConfigurationNow();
 }
 
 function updateTwinPortState() {

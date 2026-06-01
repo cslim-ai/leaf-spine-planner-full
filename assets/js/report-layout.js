@@ -265,7 +265,7 @@ function getReportInputRows() {
     { label: reportTr("sidebar.nodeLinkPortSpeed"), value: `${fields.serverLinkSpeed.value} Gbps` },
     ...(fields.useMultiPlanar.checked ? [{
       label: reportTr("report.nodeTwinPortUsage"),
-      value: `${getTwinPortSpeedText(fields.serverLinkSpeed)} ${reportTr("common.use")}`,
+      value: formatReportTwinPortUsage(true, getTwinPortSpeedText(fields.serverLinkSpeed)),
     }] : []),
     { type: "section", label: reportTr("sidebar.switchSection") },
     { type: "subsection", label: "Leaf" },
@@ -278,7 +278,7 @@ function getReportInputRows() {
     { label: reportTr("sidebar.spineSameAsLeaf"), value: fields.spineSameAsLeaf.checked ? reportTr("common.use") : reportTr("common.unused") },
     { label: reportTr("sidebar.spinePorts"), value: fields.spineSwitchPorts.value },
     { label: reportTr("sidebar.spineLinkSpeed"), value: `${fields.spineSwitchLinkSpeed.value} Gbps` },
-    { label: reportTr("results.labels.spineTwinPortUsage"), value: fields.spineUseTwinPort.checked ? `${getTwinPortSpeedText(fields.spineSwitchLinkSpeed)} ${reportTr("common.use")}` : reportTr("common.unused") },
+    { label: reportTr("results.labels.spineTwinPortUsage"), value: formatReportTwinPortUsage(fields.spineUseTwinPort.checked, getTwinPortSpeedText(fields.spineSwitchLinkSpeed)) },
     { type: "section", label: reportTr("sidebar.topologySection") },
     { label: reportTr("report.topology"), value: getMode() === "oversubscribed" ? "Oversubscribed" : "Non-blocking" },
     { label: "Multi-planar Design", value: fields.useMultiPlanar.checked ? reportTr("common.use") : reportTr("common.unused") },
@@ -297,11 +297,11 @@ function getReportMetrics() {
 }
 
 function getReportLeafTwinUsageText() {
-  if (typeof readInput === "function" && typeof getLeafTwinUsageText === "function") {
-    const input = readInput();
-    return getLeafTwinUsageText(input, LeafSpineCalculator.leafSpineLeafTwinFactor(input));
-  }
-  return fields.useTwinPort.checked ? `${getTwinPortSpeedText(fields.switchLinkSpeed)} ${reportTr("common.use")}` : reportTr("common.unused");
+  return formatReportTwinPortUsage(fields.useTwinPort.checked, getTwinPortSpeedText(fields.switchLinkSpeed));
+}
+
+function formatReportTwinPortUsage(isEnabled, speedText, useText = reportTr("common.use"), unusedText = reportTr("common.unused")) {
+  return isEnabled ? `${speedText} ${useText}` : unusedText;
 }
 
 function getReportDetailRows() {
@@ -594,4 +594,10 @@ function pdfTextHex(value) {
     hex += code.toString(16).padStart(4, "0");
   }
   return hex.toUpperCase();
+}
+
+if (typeof module !== "undefined") {
+  module.exports = {
+    formatReportTwinPortUsage,
+  };
 }
