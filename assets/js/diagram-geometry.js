@@ -4,6 +4,40 @@
  */
 
 // Diagram geometry and shared SVG node helpers.
+const GEOMETRY_CALCULATOR = typeof LeafSpineCalculator !== "undefined"
+  ? LeafSpineCalculator
+  : (typeof require === "function" ? require("./calculator") : null);
+const GEOMETRY_DIAGRAM_LABEL_GUTTER = typeof DIAGRAM_LABEL_GUTTER !== "undefined" ? DIAGRAM_LABEL_GUTTER : 0;
+const GEOMETRY_DIAGRAM_CONTENT_OFFSET = typeof DIAGRAM_CONTENT_OFFSET !== "undefined" ? DIAGRAM_CONTENT_OFFSET : 96;
+const GEOMETRY_DEFAULT_DIAGRAM_VIEW_WIDTH = typeof DEFAULT_DIAGRAM_VIEW_WIDTH !== "undefined" ? DEFAULT_DIAGRAM_VIEW_WIDTH : 920;
+const GEOMETRY_FALLBACK_NIC_COLORS = [
+  "#2563eb",
+  "#16a34a",
+  "#d97706",
+  "#7c3aed",
+  "#0891b2",
+  "#be123c",
+  "#4d7c0f",
+  "#9333ea",
+  "#0f766e",
+  "#b45309",
+  "#475569",
+  "#c026d3",
+];
+const GEOMETRY_FALLBACK_LEAF_COLORS = [
+  "#334155",
+  "#a16207",
+  "#7c2d12",
+  "#581c87",
+  "#0f766e",
+  "#9f1239",
+  "#1e3a8a",
+  "#365314",
+  "#7f1d1d",
+  "#4c1d95",
+];
+const geometryActiveServerNicPorts = GEOMETRY_CALCULATOR.activeServerNicPorts;
+const geometryLinksForSpine = GEOMETRY_CALCULATOR.linksForSpine;
 
 function diagramGeometryForView(result, viewMode) {
   if (viewMode === "wrapped") return getPptDiagramGeometry(result);
@@ -15,26 +49,28 @@ function getDiagramGeometry({ input, best }) {
   const shownSpines = best.spines;
   const shownLeafs = best.leafCount;
   const shownServers = input.serverCount;
-  const labelGutter = DIAGRAM_LABEL_GUTTER;
+  const labelGutter = GEOMETRY_DIAGRAM_LABEL_GUTTER;
   const switchW = 116;
   const switchH = 24;
   const serverW = serverNodeWidth(input.serverNicPorts);
-  const activeNicPorts = activeServerNicPorts(input);
+  const activeNicPorts = geometryActiveServerNicPorts(input);
   const serverH = 62;
   const serverSlotWidth = Math.max(86, serverW + 14);
   const leafSlotWidth = Math.max(120, switchW + 12);
   const serverSlots = Math.max(shownServers, shownLeafs);
   const width = Math.max(920, labelGutter + serverSlots * Math.max(serverSlotWidth, leafSlotWidth) + 150);
-  const height = 500;
-  const contentLeft = labelGutter + DIAGRAM_CONTENT_OFFSET;
+  const contentLeft = labelGutter + GEOMETRY_DIAGRAM_CONTENT_OFFSET;
   const contentRight = width - 48;
   const center = (contentLeft + contentRight) / 2;
   const spineY = 58;
-  const leafY = 190;
-  const serverY = 360;
-  const spineXs = distribute(center, shownSpines, 126);
-  const leafXs = distribute(center, shownLeafs, Math.max(120, Math.min(160, width / Math.max(shownLeafs, 1) * 0.8)));
   const serverXs = distribute(center, shownServers, Math.max(serverSlotWidth, Math.min(104, width / Math.max(shownServers, 1) * 0.8)));
+  const serverRowWidth = rowExtent(serverXs);
+  const { spineLeafGap, leafServerGap } = fullDiagramLayerGaps(serverRowWidth, serverW, spineY, serverH);
+  const leafY = spineY + spineLeafGap;
+  const serverY = leafY + leafServerGap;
+  const height = Math.round(serverY + serverH / 2 + 58);
+  const spineXs = distribute(center, shownSpines, expandedRowSpacing(shownSpines, 126, serverRowWidth * 0.38));
+  const leafXs = distribute(center, shownLeafs, expandedRowSpacing(shownLeafs, Math.max(120, Math.min(160, width / Math.max(shownLeafs, 1) * 0.8)), serverRowWidth * 0.62));
   const podCount = best.podCount || 1;
   const perPodLeafs = best.perPodLeafs || shownLeafs;
   const perPodSpines = best.perPodSpines || shownSpines;
@@ -52,7 +88,7 @@ function getDiagramGeometry({ input, best }) {
     const spineStart = podIndex * perPodSpines;
     const spineEnd = Math.min(spineStart + perPodSpines, spineXs.length);
     spineXs.slice(spineStart, spineEnd).forEach((spineX, localSpineIndex) => {
-      const linkCount = linksForSpine(best.uplinksPerLeaf, perPodSpines, localSpineIndex);
+      const linkCount = geometryLinksForSpine(best.uplinksPerLeaf, perPodSpines, localSpineIndex);
       for (let linkIndex = 0; linkIndex < linkCount; linkIndex += 1) {
         const offset = parallelOffset(linkIndex, linkCount, switchW - 28);
         lines.push({
@@ -116,29 +152,34 @@ function getDiagramGeometry({ input, best }) {
 }
 
 function getPptDiagramGeometry({ input, best }) {
+  const wrappedSpinesPerRow = 8;
+  const wrappedLeafsPerRow = 10;
+  const wrappedServersPerRow = 16;
   const shownSpines = best.spines;
   const shownLeafs = best.leafCount;
   const shownServers = input.serverCount;
   const switchW = 116;
   const switchH = 24;
+  const spineGap = 150;
+  const leafGap = 150;
   const serverW = serverNodeWidth(input.serverNicPorts);
-  const activeNicPorts = activeServerNicPorts(input);
+  const activeNicPorts = geometryActiveServerNicPorts(input);
   const serverH = 62;
   const serverGap = Math.max(88, serverW + 18);
-  const spinePerRow = 8;
-  const leafPerRow = 12;
-  const serverPerRow = Math.max(1, Math.min(16, Math.floor(1120 / serverGap)));
+  const labelGutter = GEOMETRY_DIAGRAM_LABEL_GUTTER;
+  const spinePerRow = wrappedSpinesPerRow;
+  const leafPerRow = wrappedLeafsPerRow;
+  const serverPerRow = wrappedServersPerRow;
   const spineRows = Math.ceil(shownSpines / spinePerRow);
   const leafRows = Math.ceil(shownLeafs / leafPerRow);
   const serverRows = Math.ceil(shownServers / serverPerRow);
-  const labelGutter = DIAGRAM_LABEL_GUTTER;
   const maxRowWidth = Math.max(
-    Math.min(shownSpines, spinePerRow) * 126,
-    Math.min(shownLeafs, leafPerRow) * 122,
+    Math.min(shownSpines, spinePerRow) * spineGap,
+    Math.min(shownLeafs, leafPerRow) * leafGap,
     Math.min(shownServers, serverPerRow) * serverGap,
   );
   const width = Math.max(920, labelGutter + maxRowWidth + 150);
-  const contentLeft = labelGutter + DIAGRAM_CONTENT_OFFSET;
+  const contentLeft = labelGutter + GEOMETRY_DIAGRAM_CONTENT_OFFSET;
   const contentRight = width - 48;
   const center = (contentLeft + contentRight) / 2;
   const spineStartY = 58;
@@ -157,8 +198,8 @@ function getPptDiagramGeometry({ input, best }) {
   const podServerCount = best.podServerCount || shownServers;
   const labels = [];
 
-  const spinePositions = makePptRowPositions(shownSpines, spinePerRow, center, spineStartY, spineRowGap, 126);
-  const leafPositions = makePptRowPositions(shownLeafs, leafPerRow, center, leafStartY, leafRowGap, 122);
+  const spinePositions = makePptRowPositions(shownSpines, spinePerRow, center, spineStartY, spineRowGap, spineGap);
+  const leafPositions = makePptRowPositions(shownLeafs, leafPerRow, center, leafStartY, leafRowGap, leafGap);
   const serverPositions = makePptRowPositions(shownServers, serverPerRow, center, serverStartY, serverRowGap, serverGap);
 
   spinePositions.forEach((position, index) => {
@@ -171,7 +212,7 @@ function getPptDiagramGeometry({ input, best }) {
     const spineStart = podIndex * perPodSpines;
     const spineEnd = Math.min(spineStart + perPodSpines, spinePositions.length);
     spinePositions.slice(spineStart, spineEnd).forEach((spinePosition, localSpineIndex) => {
-      const linkCount = linksForSpine(best.uplinksPerLeaf, perPodSpines, localSpineIndex);
+      const linkCount = geometryLinksForSpine(best.uplinksPerLeaf, perPodSpines, localSpineIndex);
       for (let linkIndex = 0; linkIndex < linkCount; linkIndex += 1) {
         const offset = parallelOffset(linkIndex, linkCount, switchW - 28);
         lines.push({
@@ -242,7 +283,7 @@ function makePptRowPositions(count, perRow, center, startY, rowGap, itemGap) {
 }
 
 function getSummaryDiagramGeometry({ input, best }) {
-  const labelGutter = DIAGRAM_LABEL_GUTTER;
+  const labelGutter = GEOMETRY_DIAGRAM_LABEL_GUTTER;
   const podCount = best.podCount || 1;
   const perPodLeafs = best.perPodLeafs || best.leafCount;
   const perPodSpines = best.perPodSpines || best.spines;
@@ -254,7 +295,7 @@ function getSummaryDiagramGeometry({ input, best }) {
   const serverEntries = compactEntriesByPod(input.serverCount, podServerCount, podCount > 1 ? 7 : 13, "server");
   const switchH = 24;
   const serverW = serverNodeWidth(input.serverNicPorts);
-  const activeNicPorts = activeServerNicPorts(input);
+  const activeNicPorts = geometryActiveServerNicPorts(input);
   const serverH = 62;
   const switchSlotWidth = Math.max(92, switchW + 18);
   const serverSlotWidth = Math.max(96, serverW + 16);
@@ -270,7 +311,7 @@ function getSummaryDiagramGeometry({ input, best }) {
   const leafY = 190 + verticalScale * 58;
   const serverY = 360 + verticalScale * 138;
   const height = Math.round(serverY + serverH / 2 + 58);
-  const contentLeft = labelGutter + DIAGRAM_CONTENT_OFFSET;
+  const contentLeft = labelGutter + GEOMETRY_DIAGRAM_CONTENT_OFFSET;
   const contentRight = width - 48;
   const center = (contentLeft + contentRight) / 2;
   const lines = [];
@@ -307,7 +348,7 @@ function getSummaryDiagramGeometry({ input, best }) {
     spineEntries.filter((entry) => entry.type === "node").forEach((spineEntry) => {
       if (Math.floor(leafEntry.index / perPodLeafs) !== Math.floor(spineEntry.index / perPodSpines)) return;
       const spinePosition = spinePositions.get(spineEntry.key);
-      const linkCount = linksForSpine(best.uplinksPerLeaf, perPodSpines, spineEntry.index % perPodSpines);
+      const linkCount = geometryLinksForSpine(best.uplinksPerLeaf, perPodSpines, spineEntry.index % perPodSpines);
       for (let linkIndex = 0; linkIndex < linkCount; linkIndex += 1) {
         const offset = parallelOffset(linkIndex, linkCount, switchW - 28);
         lines.push({
@@ -487,11 +528,11 @@ function compactPodEntries(podCount, maxPods = 5) {
   ];
 }
 
-function normalizeGeometryHorizontal(geometry, padding = 96) {
+function normalizeGeometryHorizontal(geometry, padding = 0) {
   const bounds = getGeometryHorizontalBounds(geometry);
   if (!bounds) return geometry;
   const contentWidth = bounds.maxX - bounds.minX;
-  const width = Math.max(DEFAULT_DIAGRAM_VIEW_WIDTH, Math.ceil(contentWidth + padding * 2));
+  const width = Math.max(1, Math.ceil(contentWidth + padding * 2));
   const shift = (width - contentWidth) / 2 - bounds.minX;
   shiftGeometryX(geometry, shift);
   geometry.width = width;
@@ -639,6 +680,30 @@ function distribute(center, count, gap) {
   return Array.from({ length: count }, (_, index) => start + index * gap);
 }
 
+function rowExtent(xs) {
+  if (xs.length <= 1) return 0;
+  return Math.max(...xs) - Math.min(...xs);
+}
+
+function fullDiagramLayerGaps(serverRowWidth, serverW, spineY, serverH, targetRatio = 0.325) {
+  const minSpineLeafGap = 132;
+  const minLeafServerGap = 170;
+  const estimatedWidth = Math.max(1, Math.ceil(serverRowWidth + serverW));
+  const targetHeight = Math.round(estimatedWidth * targetRatio);
+  const fixedHeight = spineY + serverH / 2 + 58;
+  const gapBudget = Math.max(minSpineLeafGap + minLeafServerGap, targetHeight - fixedHeight);
+  const spineLeafGap = Math.max(minSpineLeafGap, Math.round(gapBudget * 0.43));
+  return {
+    spineLeafGap,
+    leafServerGap: Math.max(minLeafServerGap, gapBudget - spineLeafGap),
+  };
+}
+
+function expandedRowSpacing(count, baseGap, targetWidth) {
+  if (count <= 1) return baseGap;
+  return Math.max(baseGap, targetWidth / (count - 1));
+}
+
 function distributeFromLeft(start, count, gap) {
   return Array.from({ length: count }, (_, index) => start + index * gap);
 }
@@ -757,9 +822,19 @@ function nicPortX(serverX, serverW, nicCount, nicIndex) {
 }
 
 function nicColor(index) {
-  return NIC_COLORS[index % NIC_COLORS.length];
+  const colors = typeof NIC_COLORS !== "undefined" ? NIC_COLORS : GEOMETRY_FALLBACK_NIC_COLORS;
+  return colors[index % colors.length];
 }
 
 function leafColor(index) {
-  return LEAF_COLORS[index % LEAF_COLORS.length];
+  const colors = typeof LEAF_COLORS !== "undefined" ? LEAF_COLORS : GEOMETRY_FALLBACK_LEAF_COLORS;
+  return colors[index % colors.length];
+}
+
+if (typeof module !== "undefined") {
+  module.exports = {
+    getDiagramGeometry,
+    getPptDiagramGeometry,
+    getSummaryDiagramGeometry,
+  };
 }

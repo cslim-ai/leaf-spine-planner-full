@@ -88,10 +88,13 @@ let suppressNextDiagramClick = false;
 let diagramViewMode = "full";
 const MIN_DIAGRAM_ZOOM = 0.1;
 const MAX_DIAGRAM_ZOOM = 10;
+const MIN_RENDERED_DIAGRAM_SCALE = 0.15;
+const MAX_RENDERED_DIAGRAM_SCALE = 10;
 const DIAGRAM_ZOOM_STEP = 0.05;
 const DEFAULT_DIAGRAM_VIEW_WIDTH = 920;
 const DEFAULT_DIAGRAM_VIEW_HEIGHT = 500;
-const DIAGRAM_FIT_PADDING = 24;
+const DIAGRAM_FIT_PADDING_X = 50;
+const DIAGRAM_FIT_PADDING_Y = 100;
 const DIAGRAM_LABEL_GUTTER = 0;
 const DIAGRAM_CONTENT_OFFSET = 96;
 let currentResult = null;
@@ -147,8 +150,8 @@ Object.values(fields).forEach((field) => {
   });
 });
 
-outputs.zoomIn.addEventListener("click", () => setDiagramZoom(diagramZoom + DIAGRAM_ZOOM_STEP));
-outputs.zoomOut.addEventListener("click", () => setDiagramZoom(diagramZoom - DIAGRAM_ZOOM_STEP));
+outputs.zoomIn.addEventListener("click", () => setRenderedDiagramScaleByStep(DIAGRAM_ZOOM_STEP));
+outputs.zoomOut.addEventListener("click", () => setRenderedDiagramScaleByStep(-DIAGRAM_ZOOM_STEP));
 outputs.zoomReset.addEventListener("click", () => resetDiagramView());
 outputs.zoomCenter.addEventListener("click", () => centerDiagramView());
 outputs.zoomFit.addEventListener("click", () => fitDiagramView());
@@ -183,7 +186,7 @@ window.addEventListener("message", (event) => {
 outputs.diagram.addEventListener("wheel", (event) => {
   if (!outputs.diagram.querySelector("svg")) return;
   event.preventDefault();
-  setDiagramZoom(diagramZoom + (event.deltaY < 0 ? DIAGRAM_ZOOM_STEP : -DIAGRAM_ZOOM_STEP), {
+  setRenderedDiagramScaleByStep(event.deltaY < 0 ? DIAGRAM_ZOOM_STEP : -DIAGRAM_ZOOM_STEP, {
     x: event.clientX,
     y: event.clientY,
   });
@@ -198,7 +201,11 @@ if (window.PointerEvent) {
   window.addEventListener("mousemove", moveDiagramDrag);
   window.addEventListener("mouseup", endDiagramDrag);
 }
-window.addEventListener("resize", () => applyDiagramTransform());
+window.addEventListener("resize", () => fitDiagramView());
+if (window.ResizeObserver) {
+  const diagramResizeObserver = new ResizeObserver(() => fitDiagramView());
+  diagramResizeObserver.observe(outputs.diagram);
+}
 
 initializeLocale();
 updateMode();
@@ -693,7 +700,7 @@ function render(result) {
   outputs.diagram.innerHTML = makeDiagramForView(result);
   adjustCurrentDiagramLabelBadges();
   setupDiagramHighlight();
-  applyDiagramTransform();
+  fitDiagramView();
   updateDiagramViewButtons();
   outputs.diagramCaption.textContent = "";
 }
@@ -753,7 +760,7 @@ function setDiagramViewMode(mode) {
     adjustCurrentDiagramLabelBadges();
     setupDiagramHighlight();
   }
-  resetDiagramView();
+  fitDiagramView();
   updateDiagramViewButtons();
 }
 
@@ -840,9 +847,9 @@ function updateDiagramViewButtons() {
 }
 
 function setDiagramZoom(value, origin = null) {
-  const nextZoom = Math.min(MAX_DIAGRAM_ZOOM, Math.max(MIN_DIAGRAM_ZOOM, value));
   const svg = outputs.diagram.querySelector("svg");
   if (!svg) return;
+  const nextZoom = clampDiagramZoomForRenderedScale(svg, value);
 
   if (origin) {
     const beforePoint = clientPointToSvg(svg, origin.x, origin.y);
@@ -856,9 +863,17 @@ function setDiagramZoom(value, origin = null) {
   applyDiagramTransform();
 }
 
-function resetDiagramView() {
-  diagramZoom = 1;
+function setRenderedDiagramScaleByStep(step, origin = null) {
   const svg = outputs.diagram.querySelector("svg");
+  if (!svg) return;
+  const currentScale = getRenderedDiagramScale(svg);
+  const targetScale = Math.min(MAX_RENDERED_DIAGRAM_SCALE, Math.max(MIN_RENDERED_DIAGRAM_SCALE, currentScale + step));
+  setDiagramZoom(getDiagramZoomForRenderedScale(svg, targetScale), origin);
+}
+
+function resetDiagramView() {
+  const svg = outputs.diagram.querySelector("svg");
+  diagramZoom = svg ? getDiagramZoomForRenderedScale(svg, 1) : 1;
   diagramPan = svg ? getCenteredDiagramPan(svg) : { x: 0, y: 0 };
   applyDiagramTransform();
 }
@@ -873,10 +888,12 @@ function centerDiagramView() {
 function fitDiagramView() {
   const svg = outputs.diagram.querySelector("svg");
   if (!svg) return;
-  const viewport = getDiagramViewportSize(svg);
+  const rect = svg.getBoundingClientRect();
   const bounds = getDiagramContentBounds(svg);
-  const targetWidth = Math.max(1, bounds.width + DIAGRAM_FIT_PADDING * 2);
-  diagramZoom = Math.min(MAX_DIAGRAM_ZOOM, Math.max(MIN_DIAGRAM_ZOOM, viewport.width / targetWidth));
+  const availableWidth = Math.max(1, rect.width - DIAGRAM_FIT_PADDING_X * 2);
+  const availableHeight = Math.max(1, rect.height - DIAGRAM_FIT_PADDING_Y * 2);
+  const targetScale = Math.min(availableWidth / Math.max(bounds.width, 1), availableHeight / Math.max(bounds.height, 1));
+  diagramZoom = getDiagramZoomForRenderedScale(svg, targetScale);
   const viewBox = getDiagramViewBox(svg);
   diagramPan = {
     x: bounds.x + bounds.width / 2 - viewBox.width / 2,
@@ -886,12 +903,21 @@ function fitDiagramView() {
 }
 
 function applyDiagramTransform() {
-  outputs.zoomReset.textContent = `${Math.round(diagramZoom * 100)}%`;
   const svg = outputs.diagram.querySelector("svg");
-  if (!svg) return;
+  if (!svg) {
+    outputs.zoomReset.textContent = `${Math.round(diagramZoom * 100)}%`;
+    return;
+  }
   clampDiagramPan(svg);
   const viewBox = getDiagramViewBox(svg);
-  svg.setAttribute("viewBox", `${trim(diagramPan.x)} ${trim(diagramPan.y)} ${trim(viewBox.width)} ${trim(viewBox.height)}`);
+  const positionedViewBox = {
+    x: diagramPan.x,
+    y: diagramPan.y,
+    width: viewBox.width,
+    height: viewBox.height,
+  };
+  svg.setAttribute("viewBox", `${trim(positionedViewBox.x)} ${trim(positionedViewBox.y)} ${trim(positionedViewBox.width)} ${trim(positionedViewBox.height)}`);
+  outputs.zoomReset.textContent = `${Math.round(getRenderedDiagramScale(svg, viewBox) * 100)}%`;
 }
 
 function startDiagramDrag(event) {
@@ -1054,6 +1080,41 @@ function getSvgUnitsPerScreenPixel(svg) {
     x: viewBox.width / Math.max(rect.width, 1),
     y: viewBox.height / Math.max(rect.height, 1),
   };
+}
+
+function getRenderedDiagramScale(svg, viewBox = getDiagramViewBox(svg)) {
+  const rect = svg.getBoundingClientRect();
+  const scaleX = rect.width / Math.max(viewBox.width, 1);
+  const scaleY = rect.height / Math.max(viewBox.height, 1);
+  const renderedScale = Math.min(scaleX, scaleY);
+  return Number.isFinite(renderedScale) && renderedScale > 0 ? renderedScale : diagramZoom;
+}
+
+function getDiagramZoomForRenderedScale(svg, targetScale) {
+  const rect = svg.getBoundingClientRect();
+  const viewport = getDiagramViewportSize(svg);
+  const baseRenderedScale = Math.min(
+    rect.width / Math.max(viewport.width, 1),
+    rect.height / Math.max(viewport.height, 1),
+  );
+  if (!Number.isFinite(baseRenderedScale) || baseRenderedScale <= 0) return 1;
+  const clampedTargetScale = Math.min(MAX_RENDERED_DIAGRAM_SCALE, Math.max(MIN_RENDERED_DIAGRAM_SCALE, targetScale));
+  return clampedTargetScale / baseRenderedScale;
+}
+
+function clampDiagramZoomForRenderedScale(svg, zoom) {
+  const rect = svg.getBoundingClientRect();
+  const viewport = getDiagramViewportSize(svg);
+  const baseRenderedScale = Math.min(
+    rect.width / Math.max(viewport.width, 1),
+    rect.height / Math.max(viewport.height, 1),
+  );
+  if (!Number.isFinite(baseRenderedScale) || baseRenderedScale <= 0) {
+    return Math.min(MAX_DIAGRAM_ZOOM, Math.max(MIN_DIAGRAM_ZOOM, zoom));
+  }
+  const minZoom = MIN_RENDERED_DIAGRAM_SCALE / baseRenderedScale;
+  const maxZoom = MAX_RENDERED_DIAGRAM_SCALE / baseRenderedScale;
+  return Math.min(maxZoom, Math.max(minZoom, zoom));
 }
 
 function formatGbps(value) {
