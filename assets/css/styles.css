@@ -149,7 +149,9 @@ body {
   grid-template-rows: auto minmax(0, 1fr);
   gap: 16px;
   height: 100%;
+  min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .sidebar-scroll {
@@ -170,12 +172,15 @@ body {
 .inputs {
   display: grid;
   gap: 12px;
+  min-width: 0;
   padding: 20px;
 }
 
 .panel-header {
   position: relative;
   min-height: 106px;
+  min-width: 0;
+  overflow: hidden;
   padding: 20px;
   text-align: center;
 }
@@ -188,15 +193,19 @@ body {
 .title-lockup {
   display: inline-grid;
   justify-items: stretch;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .eyebrow {
   margin: 0;
   color: var(--accent);
-  font-size: 32px;
+  font-size: 29px;
   font-weight: 900;
   letter-spacing: 0;
   line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
