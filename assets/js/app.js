@@ -770,7 +770,7 @@ function adjustCurrentDiagramLabelBadges() {
 function setupDiagramHighlight() {
   const svg = outputs.diagram.querySelector("svg");
   if (!svg) return;
-  svg.querySelectorAll("[data-device], [data-source][data-target]").forEach((item) => {
+  svg.querySelectorAll(getDiagramHighlightItemSelector()).forEach((item) => {
     item.classList.remove("is-selected", "is-highlighted", "is-dimmed");
   });
 }
@@ -791,22 +791,24 @@ function highlightDiagramTarget(svg, target) {
     clearDiagramHighlight(svg);
     return;
   }
-  highlightDiagramDevice(svg, node.dataset.device);
+  const strictKeys = usesDiagramUniqueHighlightKeys(svg);
+  highlightDiagramDevice(svg, getDiagramHighlightKey(node, strictKeys), strictKeys);
 }
 
-function highlightDiagramDevice(svg, selectedDevice) {
-  const highlightedDevices = new Set([selectedDevice]);
-  svg.querySelectorAll("[data-source][data-target]").forEach((link) => {
-    if (link.dataset.source === selectedDevice) highlightedDevices.add(link.dataset.target);
-    if (link.dataset.target === selectedDevice) highlightedDevices.add(link.dataset.source);
-  });
+function highlightDiagramDevice(svg, selectedKey, strictKeys = usesDiagramUniqueHighlightKeys(svg)) {
+  if (!selectedKey) {
+    clearDiagramHighlight(svg);
+    return;
+  }
+  const links = svg.querySelectorAll("[data-source-key], [data-target-key], [data-source][data-target]");
+  const highlightedDevices = getConnectedHighlightKeys(links, selectedKey, strictKeys);
   svg.querySelectorAll("[data-device]").forEach((item) => {
-    const highlighted = highlightedDevices.has(item.dataset.device);
+    const highlighted = highlightedDevices.has(getDiagramHighlightKey(item, strictKeys));
     item.classList.toggle("is-selected", highlighted);
     item.classList.toggle("is-dimmed", !highlighted);
   });
-  svg.querySelectorAll("[data-source][data-target]").forEach((link) => {
-    const connected = link.dataset.source === selectedDevice || link.dataset.target === selectedDevice;
+  links.forEach((link) => {
+    const connected = isDiagramLinkConnectedToKey(link, selectedKey, strictKeys);
     link.classList.toggle("is-highlighted", connected);
     link.classList.toggle("is-dimmed", !connected);
   });
@@ -814,7 +816,7 @@ function highlightDiagramDevice(svg, selectedDevice) {
 
 function clearDiagramHighlight(svg = outputs.diagram.querySelector("svg")) {
   if (!svg) return;
-  svg.querySelectorAll("[data-device], [data-source][data-target]").forEach((item) => {
+  svg.querySelectorAll(getDiagramHighlightItemSelector()).forEach((item) => {
     item.classList.remove("is-selected", "is-highlighted", "is-dimmed");
   });
 }

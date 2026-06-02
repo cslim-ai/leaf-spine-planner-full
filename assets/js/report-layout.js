@@ -8,6 +8,46 @@ function reportTr(path, params = {}) {
   return typeof tr === "function" ? tr(path, params) : path;
 }
 
+function reportTrim(value) {
+  if (typeof trim === "function") return trim(value);
+  return Number.parseFloat(Number(value).toFixed(3)).toString();
+}
+
+const REPORT_HEADER_META_STYLE = {
+  fill: "#000",
+  fontSize: 12,
+  fontWeight: 500,
+  lineHeight: 1.2,
+};
+
+const REPORT_HEADER_SPACING = {
+  titleToMetaGap: 30,
+  metaRowGap: 16,
+  metaToDividerGap: 18,
+};
+
+const REPORT_VISUAL_STYLE = {
+  colors: {
+    bg: "#eef5ff",
+    ink: "#0f172a",
+    muted: "#5b6b86",
+    line: "#c8d8ee",
+    panel: "#ffffff",
+    accent: "#2563eb",
+    accentDark: "#1d4ed8",
+    diagramBg: "#f8fbff",
+    warning: "#dc2626",
+  },
+  title: { fontSize: 32, fontWeight: 900 },
+  section: { fontSize: 16, fontWeight: 900 },
+  subsection: { fontSize: 13, fontWeight: 900 },
+  label: { fontSize: 14, fontWeight: 700 },
+  value: { fontSize: 14, fontWeight: 700 },
+  metric: { labelFontSize: 14, labelFontWeight: 800, valueFontSize: 32, valueFontWeight: 900 },
+  panelTitle: { fontSize: 20, fontWeight: 900 },
+  detail: { labelFontWeight: 800, valueFontWeight: 750, messageFontWeight: 400 },
+};
+
 async function renderReportCanvas(generatedAtText = formatDisplayTimestamp(new Date())) {
   const fontCss = await getEmbeddedReportFontCss();
   const svgText = makeReportSvg(generatedAtText, fontCss);
@@ -18,7 +58,7 @@ async function renderReportCanvas(generatedAtText = formatDisplayTimestamp(new D
   canvas.width = Math.round(width * scale);
   canvas.height = Math.round(height * scale);
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#eef5ff";
+  ctx.fillStyle = getReportVisualStyle().colors.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
   return canvas;
@@ -35,55 +75,66 @@ function makeReportSvg(generatedAtText = formatDisplayTimestamp(new Date()), emb
   const sidebarRows = getReportInputRows();
   const detailRows = getReportDetailRows();
   const metrics = getReportMetrics();
+  const visualStyle = getReportVisualStyle();
   const titleOffsetY = 10;
-  const sidebarDividerY = margin + 80 + titleOffsetY;
-  const sidebarTopRowsY = margin + 108 + titleOffsetY;
-  const sidebarH = 126 + titleOffsetY + reportRowsHeight(sidebarRows);
-  const metricH = 92;
-  const minDiagramH = 420;
+  const headerRows = formatReportHeaderRows(generatedAtText, reportTr("meta.credit"));
+  const headerStyle = getReportHeaderMetaStyle();
+  const headerSpacing = getReportHeaderSpacing();
+  const titleY = margin + 38 + titleOffsetY;
+  const headerRowsY = titleY + headerSpacing.titleToMetaGap;
+  const sidebarDividerY = headerRowsY + headerSpacing.metaRowGap * (headerRows.length - 1) + headerSpacing.metaToDividerGap;
+  const sidebarTopRowsY = sidebarDividerY + 28;
+  const sidebarH = sidebarTopRowsY - margin + reportRowsHeight(sidebarRows) + 18;
+  const metricH = 104;
+  const diagramSourceSize = getCurrentReportDiagramViewportSize();
+  const minDiagramH = getReportDiagramRequiredHeight(contentW - 32, diagramSourceSize, 420);
   const detailContentOffset = 76;
   const maxDetailH = pageHeight - (margin + metricH + gap + gap + minDiagramH) - margin;
   const detailScale = Math.min(1, Math.max(0.66, (maxDetailH - detailContentOffset) / reportDetailRowsHeight(detailRows)));
   const detailRowH = 24 * detailScale;
   const detailSeparatorH = 12 * detailScale;
-  const detailFontSize = 14 * detailScale;
+  const detailFontSize = visualStyle.label.fontSize * detailScale;
   const detailH = Math.max(142, Math.min(maxDetailH, detailContentOffset + reportDetailRowsHeight(detailRows, detailRowH, detailSeparatorH)));
   const diagramH = pageHeight - (margin + metricH + gap + detailH + gap) - margin;
   const diagramY = margin + metricH + gap + detailH + gap;
-  const diagramViewportX = contentX + 16;
-  const diagramViewportY = diagramY + 52;
-  const diagramViewportW = contentW - 32;
-  const diagramViewportH = diagramH - 68;
+  const diagramViewportArea = { x: contentX + 16, y: diagramY + 52, width: contentW - 32, height: diagramH - 68 };
+  const diagramViewportRect = getReportDiagramViewportRect(diagramViewportArea.width, diagramViewportArea.height, diagramSourceSize);
+  const diagramViewportX = diagramViewportArea.x + diagramViewportRect.x;
+  const diagramViewportY = diagramViewportArea.y + diagramViewportRect.y;
+  const diagramViewportW = diagramViewportRect.width;
+  const diagramViewportH = diagramViewportRect.height;
   const diagramSvg = makeVisibleDiagramSvgMarkup(diagramViewportW, diagramViewportH);
+  const colors = visualStyle.colors;
 
   return `
     <svg xmlns="http://www.w3.org/2000/svg" width="${pageWidth}" height="${pageHeight}" viewBox="0 0 ${pageWidth} ${pageHeight}">
       <style>
         ${embeddedFontCss}
         svg, text { font-family: "Pretendard", Arial, sans-serif; }
-        .title { fill: #2563eb; font-size: 30px; font-weight: 900; text-anchor: middle; }
-        .section { fill: #1d4ed8; font-size: 16px; font-weight: 900; }
-        .subsection { fill: #0f172a; font-size: 13px; font-weight: 900; }
-        .label { fill: #5b6b86; font-size: 14px; font-weight: 700; }
-        .value { fill: #0f172a; font-size: 14px; font-weight: 700; }
-        .metric-label { fill: #5b6b86; font-size: 13px; font-weight: 900; }
-        .metric-value { fill: #0f172a; font-size: 28px; font-weight: 900; }
-        .panel-title { fill: #0f172a; font-size: 18px; font-weight: 900; }
-        .detail-label { fill: #5b6b86; font-size: ${trim(detailFontSize)}px; font-weight: 800; }
-        .detail-value { fill: #0f172a; font-size: ${trim(detailFontSize)}px; font-weight: 800; }
-        .detail-group-label { fill: #1d4ed8; font-size: ${trim(Math.max(12, detailFontSize - 1))}px; font-weight: 900; }
-        .detail-message { fill: #5b6b86; font-size: 14px; font-weight: 400; }
+        .title { fill: ${colors.accent}; font-size: ${visualStyle.title.fontSize}px; font-weight: ${visualStyle.title.fontWeight}; text-anchor: middle; }
+        .header-meta { fill: ${headerStyle.fill}; font-size: ${headerStyle.fontSize}px; font-weight: ${headerStyle.fontWeight}; }
+        .section { fill: ${colors.accentDark}; font-size: ${visualStyle.section.fontSize}px; font-weight: ${visualStyle.section.fontWeight}; }
+        .subsection { fill: ${colors.ink}; font-size: ${visualStyle.subsection.fontSize}px; font-weight: ${visualStyle.subsection.fontWeight}; }
+        .label { fill: ${colors.muted}; font-size: ${visualStyle.label.fontSize}px; font-weight: ${visualStyle.label.fontWeight}; }
+        .value { fill: ${colors.ink}; font-size: ${visualStyle.value.fontSize}px; font-weight: ${visualStyle.value.fontWeight}; }
+        .metric-label { fill: ${colors.muted}; font-size: ${visualStyle.metric.labelFontSize}px; font-weight: ${visualStyle.metric.labelFontWeight}; }
+        .metric-value { fill: ${colors.ink}; font-size: ${visualStyle.metric.valueFontSize}px; font-weight: ${visualStyle.metric.valueFontWeight}; }
+        .panel-title { fill: ${colors.ink}; font-size: ${visualStyle.panelTitle.fontSize}px; font-weight: ${visualStyle.panelTitle.fontWeight}; }
+        .detail-label { fill: ${colors.muted}; font-size: ${trim(detailFontSize)}px; font-weight: ${visualStyle.detail.labelFontWeight}; }
+        .detail-value { fill: ${colors.ink}; font-size: ${trim(detailFontSize)}px; font-weight: ${visualStyle.detail.valueFontWeight}; }
+        .detail-group-label { fill: ${colors.accentDark}; font-size: ${trim(Math.max(12, detailFontSize - 1))}px; font-weight: ${visualStyle.section.fontWeight}; }
+        .detail-message { fill: ${colors.muted}; font-size: ${visualStyle.label.fontSize}px; font-weight: ${visualStyle.detail.messageFontWeight}; }
       </style>
-      <rect width="100%" height="100%" fill="#eef5ff"/>
+      <rect width="100%" height="100%" fill="${colors.bg}"/>
       ${reportPanel(margin, margin, sidebarW, sidebarH)}
-      <text class="title" x="${margin + sidebarW / 2}" y="${margin + 38 + titleOffsetY}">Leaf-Spine Planner</text>
-      <text class="label" x="${margin + sidebarW / 2}" y="${margin + 60 + titleOffsetY}" text-anchor="middle">${escapeXml(reportTr("meta.credit"))} ${escapeXml(generatedAtText)}</text>
-      <line x1="${margin + 20}" y1="${sidebarDividerY}" x2="${margin + sidebarW - 20}" y2="${sidebarDividerY}" stroke="#c8d8ee" stroke-width="1"/>
+      <text class="title" x="${margin + sidebarW / 2}" y="${titleY}">Leaf-Spine Planner</text>
+      ${headerRows.map((row, index) => `<text class="header-meta" x="${margin + sidebarW / 2}" y="${headerRowsY + index * headerSpacing.metaRowGap}" text-anchor="middle">${escapeXml(row)}</text>`).join("")}
+      <line x1="${margin + 20}" y1="${sidebarDividerY}" x2="${margin + sidebarW - 20}" y2="${sidebarDividerY}" stroke="${colors.line}" stroke-width="1"/>
       ${reportRows(sidebarRows, margin + 20, sidebarTopRowsY, sidebarW - 40)}
       ${metrics.map((item, index) => reportMetricCard(contentX + index * ((contentW - 36) / 4 + 12), margin, (contentW - 36) / 4, metricH, item)).join("")}
       ${reportPanel(contentX, margin + metricH + gap, contentW, detailH)}
       <text class="panel-title" x="${contentX + 20}" y="${margin + metricH + gap + 32}">${escapeXml(reportTr("report.resultTitle"))}</text>
-      <line x1="${contentX + 20}" y1="${margin + metricH + gap + 46}" x2="${contentX + contentW - 20}" y2="${margin + metricH + gap + 46}" stroke="#c8d8ee" stroke-width="1"/>
+      <line x1="${contentX + 20}" y1="${margin + metricH + gap + 46}" x2="${contentX + contentW - 20}" y2="${margin + metricH + gap + 46}" stroke="${colors.line}" stroke-width="1"/>
       ${reportDetailRows(detailRows, contentX + 20, margin + metricH + gap + detailContentOffset, contentW - 40, detailRowH, detailSeparatorH)}
       ${reportPanel(contentX, diagramY, contentW, diagramH)}
       <text class="panel-title" x="${contentX + 20}" y="${diagramY + 32}">${escapeXml(reportTr("report.diagramTitle"))}</text>
@@ -100,29 +151,32 @@ function getReportSvgSize(svgText) {
 }
 
 function reportPanel(x, y, w, h) {
-  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="#fff" stroke="#c8d8ee"/>`;
+  const colors = getReportVisualStyle().colors;
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${colors.panel}" stroke="${colors.line}"/>`;
 }
 
 function reportDiagramViewport(x, y, w, h) {
-  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="#f8fbff" stroke="#c8d8ee"/>`;
+  const colors = getReportVisualStyle().colors;
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${colors.diagramBg}" stroke="${colors.line}"/>`;
 }
 
 function reportMetricCard(x, y, w, h, item) {
   return `
     ${reportPanel(x, y, w, h)}
-    <text class="metric-label" x="${x + 16}" y="${y + 28}">${escapeXml(item.label)}</text>
-    <text class="metric-value" x="${x + 16}" y="${y + 66}">${escapeXml(item.value)}</text>
+    <text class="metric-label" x="${x + 16}" y="${y + 32}">${escapeXml(item.label)}</text>
+    <text class="metric-value" x="${x + 16}" y="${y + 74}">${escapeXml(item.value)}</text>
   `;
 }
 
 function reportRows(rows, x, y, width) {
   let cursorY = y;
+  const colors = getReportVisualStyle().colors;
   return rows.map((row) => {
     if (row.type === "section") {
       const isFirstSection = cursorY === y;
       const lineY = cursorY - (isFirstSection ? 18 : 18);
       const textY = cursorY + (isFirstSection ? 0 : 10);
-      const separator = isFirstSection ? "" : `<line x1="${x}" y1="${lineY}" x2="${x + width}" y2="${lineY}" stroke="#c8d8ee" stroke-width="1"/>`;
+      const separator = isFirstSection ? "" : `<line x1="${x}" y1="${lineY}" x2="${x + width}" y2="${lineY}" stroke="${colors.line}" stroke-width="1"/>`;
       const markup = `${separator}<text class="section" x="${x}" y="${textY}">${escapeXml(row.label)}</text>`;
       cursorY += isFirstSection ? 30 : 38;
       return markup;
@@ -169,12 +223,13 @@ function reportRowsHeight(rows) {
 function reportDetailRows(rows, x, y, width, rowHeight = 24, separatorHeight = 12) {
   let cursorY = y;
   const contentIndent = 14;
+  const colors = getReportVisualStyle().colors;
   let hasRenderedDetailItem = false;
   return rows.map((row) => {
     if (row.type === "separator") {
       const lineY = cursorY - separatorHeight * 0.8;
       cursorY += separatorHeight;
-      return `<line x1="${x}" y1="${lineY}" x2="${x + width}" y2="${lineY}" stroke="#c8d8ee" stroke-width="1"/>`;
+      return `<line x1="${x}" y1="${lineY}" x2="${x + width}" y2="${lineY}" stroke="${colors.line}" stroke-width="1"/>`;
     }
     if (row.type === "group") {
       const groupTopGap = hasRenderedDetailItem ? Math.max(7, rowHeight * 0.45) : 0;
@@ -185,7 +240,7 @@ function reportDetailRows(rows, x, y, width, rowHeight = 24, separatorHeight = 1
       const textY = cursorY;
       cursorY += groupH + groupBottomGap;
       return `
-        <rect x="${x}" y="${rectY}" width="${width}" height="${groupH}" rx="6" fill="#eef5ff"/>
+        <rect x="${x}" y="${rectY}" width="${width}" height="${groupH}" rx="6" fill="${colors.bg}"/>
         <text class="detail-group-label" x="${x + 9}" y="${textY}">${escapeXml(row.label)}</text>
       `;
     }
@@ -304,6 +359,70 @@ function formatReportTwinPortUsage(isEnabled, speedText, useText = reportTr("com
   return isEnabled ? `${speedText} ${useText}` : unusedText;
 }
 
+function formatReportHeaderRows(generatedAtText, creditText) {
+  return [generatedAtText, creditText];
+}
+
+function getReportHeaderMetaStyle() {
+  return { ...REPORT_HEADER_META_STYLE };
+}
+
+function getReportHeaderSpacing() {
+  return { ...REPORT_HEADER_SPACING };
+}
+
+function getReportVisualStyle() {
+  return {
+    ...REPORT_VISUAL_STYLE,
+    colors: { ...REPORT_VISUAL_STYLE.colors },
+    title: { ...REPORT_VISUAL_STYLE.title },
+    section: { ...REPORT_VISUAL_STYLE.section },
+    subsection: { ...REPORT_VISUAL_STYLE.subsection },
+    label: { ...REPORT_VISUAL_STYLE.label },
+    value: { ...REPORT_VISUAL_STYLE.value },
+    metric: { ...REPORT_VISUAL_STYLE.metric },
+    panelTitle: { ...REPORT_VISUAL_STYLE.panelTitle },
+    detail: { ...REPORT_VISUAL_STYLE.detail },
+  };
+}
+
+function getCurrentReportDiagramViewportSize() {
+  if (typeof outputs !== "undefined") {
+    const svg = outputs.diagram?.querySelector?.("svg");
+    const rect = svg?.getBoundingClientRect?.();
+    if (rect?.width > 0 && rect?.height > 0) {
+      return { width: rect.width, height: rect.height };
+    }
+  }
+  return { width: 16, height: 9 };
+}
+
+function getReportDiagramViewportRect(availableWidth, availableHeight, sourceSize = {}) {
+  const sourceWidth = Math.max(1, Number(sourceSize.width) || availableWidth);
+  const sourceHeight = Math.max(1, Number(sourceSize.height) || availableHeight);
+  const sourceAspect = sourceWidth / sourceHeight;
+  let width = availableWidth;
+  let height = width / sourceAspect;
+  if (height > availableHeight) {
+    height = availableHeight;
+    width = height * sourceAspect;
+  }
+  return {
+    x: (availableWidth - width) / 2,
+    y: (availableHeight - height) / 2,
+    width,
+    height,
+  };
+}
+
+function getReportDiagramRequiredHeight(viewportWidth, sourceSize = {}, baseMinHeight = 420) {
+  const sourceWidth = Math.max(1, Number(sourceSize.width) || 16);
+  const sourceHeight = Math.max(1, Number(sourceSize.height) || 9);
+  const sourceAspect = sourceWidth / sourceHeight;
+  const viewportHeight = viewportWidth / sourceAspect;
+  return Math.max(baseMinHeight, Math.ceil(viewportHeight + 68));
+}
+
 function getReportDetailRows() {
   const rows = [];
   [...outputs.detailList.children].forEach((item) => {
@@ -333,13 +452,79 @@ function makeVisibleDiagramSvgMarkup(width, height) {
   const svg = outputs.diagram.querySelector("svg");
   if (!svg) return "";
   LeafSpineDiagram.adjustLabelBadges(svg);
+  return makeReportDiagramSvgFromElement(svg, width, height);
+}
+
+function makeReportDiagramSvgFromElement(svg, width, height) {
   const clone = svg.cloneNode(true);
-  clone.setAttribute("width", width);
-  clone.setAttribute("height", height);
-  clone.setAttribute("preserveAspectRatio", "xMidYMid meet");
-  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-  clone.insertBefore(makePngSvgStyleElement(), clone.firstChild);
-  return new XMLSerializer().serializeToString(clone);
+  prepareReportDiagramSvgClone(clone, width, height);
+  return stripReportDiagramStyleState(new XMLSerializer().serializeToString(clone));
+}
+
+function makeReportDiagramSvgFromCurrentMarkup(markup, width, height) {
+  const svg = parseSvgMarkup(markup);
+  if (!svg) return "";
+  prepareReportDiagramSvgClone(svg, width, height);
+  return stripReportDiagramStyleState(serializeSvgNode(svg));
+}
+
+function parseSvgMarkup(markup) {
+  if (typeof DOMParser !== "undefined") {
+    return new DOMParser().parseFromString(markup, "image/svg+xml").querySelector("svg");
+  }
+  const match = String(markup).match(/<svg[\s\S]*<\/svg>/i);
+  return match ? createStringSvgNode(match[0]) : null;
+}
+
+function createStringSvgNode(svgText) {
+  return {
+    text: svgText,
+    setAttribute(name, value) {
+      const openTag = this.text.match(/<svg\b[^>]*>/i)?.[0];
+      if (!openTag) return;
+      const pattern = new RegExp(`\\s${name}="[^"]*"`, "i");
+      const nextOpenTag = pattern.test(openTag)
+        ? openTag.replace(pattern, ` ${name}="${value}"`)
+        : openTag.replace(/<svg/i, `<svg ${name}="${value}"`);
+      this.text = this.text.replace(openTag, nextOpenTag);
+    },
+  };
+}
+
+function prepareReportDiagramSvgClone(svg, width, height) {
+  svg.setAttribute("width", width);
+  svg.setAttribute("height", height);
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  stripReportDiagramInteractionState(svg);
+  if (typeof document !== "undefined" && svg.insertBefore) {
+    svg.insertBefore(makePngSvgStyleElement(), svg.firstChild);
+  }
+}
+
+function stripReportDiagramInteractionState(svg) {
+  if (svg.text) {
+    svg.text = svg.text
+      .replace(/\sclass="([^"]*)"/g, (_match, classValue) => {
+        const nextClass = classValue.split(/\s+/).filter((name) => !["is-selected", "is-highlighted", "is-dimmed"].includes(name)).join(" ");
+        return nextClass ? ` class="${nextClass}"` : "";
+      });
+    return;
+  }
+  if (svg.querySelectorAll) {
+    svg.querySelectorAll(".is-selected, .is-highlighted, .is-dimmed").forEach((node) => {
+      node.classList.remove("is-selected", "is-highlighted", "is-dimmed");
+    });
+  }
+}
+
+function serializeSvgNode(svg) {
+  if (svg.text) return svg.text;
+  return new XMLSerializer().serializeToString(svg);
+}
+
+function stripReportDiagramStyleState(svgText) {
+  return svgText.replace(/\.is-(?:selected|highlighted|dimmed)\s*\{[^}]*\}/g, "");
 }
 
 async function loadSvgImage(svgText) {
@@ -378,23 +563,32 @@ async function makeSelectableReportPdf(generatedAtText = formatDisplayTimestamp(
   const toW = (value) => value * scale;
   const toH = (value) => value * scale;
 
-  const rect = (x, y, w, h, fill = "FFFFFF", stroke = "C8D8EE") => {
+  const rect = (x, y, w, h, fill = getReportVisualStyle().colors.panel, stroke = getReportVisualStyle().colors.line) => {
     ops.push(`q ${pdfRgb(fill)} rg ${pdfRgb(stroke)} RG ${trim(toX(x))} ${trim(toY(y + h))} ${trim(toW(w))} ${trim(toH(h))} re B Q`);
   };
   const fillRect = (x, y, w, h, fill) => {
     ops.push(`q ${pdfRgb(fill)} rg ${trim(toX(x))} ${trim(toY(y + h))} ${trim(toW(w))} ${trim(toH(h))} re f Q`);
   };
-  const line = (x1, y1, x2, y2, color = "C8D8EE") => {
+  const line = (x1, y1, x2, y2, color = getReportVisualStyle().colors.line) => {
     ops.push(`q ${pdfRgb(color)} RG 0.6 w ${trim(toX(x1))} ${trim(toY(y1))} m ${trim(toX(x2))} ${trim(toY(y2))} l S Q`);
   };
-  const text = (value, x, y, size = 10, color = "0F172A") => {
+  const text = (value, x, y, size = 10, color = getReportVisualStyle().colors.ink) => {
     ops.push(`BT /F2 ${trim(size * scale)} Tf ${pdfRgb(color)} rg ${trim(toX(x))} ${trim(toY(y))} Td <${pdfTextHex(value)}> Tj ET`);
   };
+  const visualStyle = getReportVisualStyle();
+  const colors = visualStyle.colors;
 
-  fillRect(0, 0, layout.pageWidth, layout.pageHeight, "EEF5FF");
+  fillRect(0, 0, layout.pageWidth, layout.pageHeight, colors.bg);
+  const headerRows = formatReportHeaderRows(generatedAtText, reportTr("meta.credit"));
+  const headerStyle = getReportHeaderMetaStyle();
+  const headerSpacing = getReportHeaderSpacing();
+  const titleY = layout.margin + 38 + layout.titleOffsetY;
+  const headerRowsY = titleY + headerSpacing.titleToMetaGap;
   rect(layout.margin, layout.margin, layout.sidebarW, layout.sidebarH);
-  text("Leaf-Spine Planner", layout.margin + 50, layout.margin + 38 + layout.titleOffsetY, 28, "2563EB");
-  text(`${reportTr("meta.credit")} ${generatedAtText}`, layout.margin + layout.sidebarW / 2 - 92, layout.margin + 60 + layout.titleOffsetY, 12, "5B6B86");
+  text("Leaf-Spine Planner", layout.margin + 50, titleY, visualStyle.title.fontSize, colors.accent);
+  headerRows.forEach((row, index) => {
+    text(row, layout.margin + layout.sidebarW / 2 - 92, headerRowsY + index * headerSpacing.metaRowGap, headerStyle.fontSize, colors.ink);
+  });
   line(layout.margin + 20, layout.sidebarDividerY, layout.margin + layout.sidebarW - 20, layout.sidebarDividerY);
   drawPdfRows(ops, layout.sidebarRows, layout.margin + 20, layout.sidebarTopRowsY, layout.sidebarW - 40, text);
 
@@ -402,27 +596,27 @@ async function makeSelectableReportPdf(generatedAtText = formatDisplayTimestamp(
     const x = layout.contentX + index * ((layout.contentW - 36) / 4 + 12);
     const w = (layout.contentW - 36) / 4;
     rect(x, layout.margin, w, layout.metricH);
-    text(item.label, x + 16, layout.margin + 28, 12, "5B6B86");
-    text(item.value, x + 16, layout.margin + 66, 26, "0F172A");
+    text(item.label, x + 16, layout.margin + 32, visualStyle.metric.labelFontSize, colors.muted);
+    text(item.value, x + 16, layout.margin + 74, visualStyle.metric.valueFontSize, colors.ink);
   });
 
   const detailY = layout.margin + layout.metricH + layout.gap;
   rect(layout.contentX, detailY, layout.contentW, layout.detailH);
-  text(reportTr("report.resultTitle"), layout.contentX + 20, detailY + 32, 17, "0F172A");
+  text(reportTr("report.resultTitle"), layout.contentX + 20, detailY + 32, visualStyle.panelTitle.fontSize, colors.ink);
   line(layout.contentX + 20, detailY + 46, layout.contentX + layout.contentW - 20, detailY + 46);
   drawPdfDetailRows(ops, layout.detailRows, layout.contentX + 20, detailY + layout.detailContentOffset, layout.contentW - 40, layout.detailRowH, layout.detailSeparatorH, layout.detailFontSize, text, line);
 
   rect(layout.contentX, layout.diagramY, layout.contentW, layout.diagramH);
-  text(reportTr("report.diagramTitle"), layout.contentX + 20, layout.diagramY + 32, 17, "0F172A");
+  text(reportTr("report.diagramTitle"), layout.contentX + 20, layout.diagramY + 32, visualStyle.panelTitle.fontSize, colors.ink);
 
-  const diagramBlob = await renderDiagramJpeg(layout.contentW - 32, layout.diagramH - 68);
+  const diagramBlob = await renderDiagramJpeg(layout.diagramViewportW, layout.diagramViewportH);
   const diagramBytes = new Uint8Array(await diagramBlob.arrayBuffer());
   const imageWidth = diagramBlob._width;
   const imageHeight = diagramBlob._height;
-  const imageX = layout.contentX + 16;
-  const imageY = layout.diagramY + 52;
-  rect(imageX, imageY, layout.contentW - 32, layout.diagramH - 68, "F8FBFF", "C8D8EE");
-  ops.push(`q ${trim(toW(layout.contentW - 32))} 0 0 ${trim(toH(layout.diagramH - 68))} ${trim(toX(imageX))} ${trim(toY(imageY + layout.diagramH - 68))} cm /Im0 Do Q`);
+  const imageX = layout.diagramViewportX;
+  const imageY = layout.diagramViewportY;
+  rect(imageX, imageY, layout.diagramViewportW, layout.diagramViewportH, colors.diagramBg, colors.line);
+  ops.push(`q ${trim(toW(layout.diagramViewportW))} 0 0 ${trim(toH(layout.diagramViewportH))} ${trim(toX(imageX))} ${trim(toY(imageY + layout.diagramViewportH))} cm /Im0 Do Q`);
 
   const content = ops.join("\n");
   const objects = [
@@ -452,11 +646,16 @@ function getReportLayout() {
   const detailRows = getReportDetailRows();
   const metrics = getReportMetrics();
   const titleOffsetY = 10;
-  const sidebarDividerY = margin + 80 + titleOffsetY;
-  const sidebarTopRowsY = margin + 108 + titleOffsetY;
-  const sidebarH = 126 + titleOffsetY + reportRowsHeight(sidebarRows);
-  const metricH = 92;
-  const minDiagramH = 420;
+  const headerRows = formatReportHeaderRows("", "");
+  const titleY = margin + 38 + titleOffsetY;
+  const headerSpacing = getReportHeaderSpacing();
+  const headerRowsY = titleY + headerSpacing.titleToMetaGap;
+  const sidebarDividerY = headerRowsY + headerSpacing.metaRowGap * (headerRows.length - 1) + headerSpacing.metaToDividerGap;
+  const sidebarTopRowsY = sidebarDividerY + 28;
+  const sidebarH = sidebarTopRowsY - margin + reportRowsHeight(sidebarRows) + 18;
+  const metricH = 104;
+  const diagramSourceSize = getCurrentReportDiagramViewportSize();
+  const minDiagramH = getReportDiagramRequiredHeight(contentW - 32, diagramSourceSize, 420);
   const detailContentOffset = 76;
   const maxDetailH = pageHeight - (margin + metricH + gap + gap + minDiagramH) - margin;
   const detailScale = Math.min(1, Math.max(0.66, (maxDetailH - detailContentOffset) / reportDetailRowsHeight(detailRows)));
@@ -466,6 +665,8 @@ function getReportLayout() {
   const detailH = Math.max(142, Math.min(maxDetailH, detailContentOffset + reportDetailRowsHeight(detailRows, detailRowH, detailSeparatorH)));
   const diagramH = pageHeight - (margin + metricH + gap + detailH + gap) - margin;
   const diagramY = margin + metricH + gap + detailH + gap;
+  const diagramViewportArea = { x: contentX + 16, y: diagramY + 52, width: contentW - 32, height: diagramH - 68 };
+  const diagramViewportRect = getReportDiagramViewportRect(diagramViewportArea.width, diagramViewportArea.height, diagramSourceSize);
   return {
     pageWidth,
     pageHeight,
@@ -489,36 +690,42 @@ function getReportLayout() {
     detailH,
     diagramH,
     diagramY,
+    diagramViewportX: diagramViewportArea.x + diagramViewportRect.x,
+    diagramViewportY: diagramViewportArea.y + diagramViewportRect.y,
+    diagramViewportW: diagramViewportRect.width,
+    diagramViewportH: diagramViewportRect.height,
   };
 }
 
 function drawPdfRows(ops, rows, x, y, width, text) {
   let cursorY = y;
+  const style = getReportVisualStyle();
+  const colors = style.colors;
   rows.forEach((row) => {
     if (row.type === "section") {
       const isFirstSection = cursorY === y;
       const lineY = cursorY - (isFirstSection ? 18 : 18);
       const textY = cursorY + (isFirstSection ? 0 : 10);
       if (cursorY !== y) {
-        ops.push(`q ${pdfRgb("C8D8EE")} RG 0.6 w ${trim(x * (595.28 / 1320))} ${trim(841.89 - lineY * (595.28 / 1320))} m ${trim((x + width) * (595.28 / 1320))} ${trim(841.89 - lineY * (595.28 / 1320))} l S Q`);
+        ops.push(`q ${pdfRgb(colors.line)} RG 0.6 w ${trim(x * (595.28 / 1320))} ${trim(841.89 - lineY * (595.28 / 1320))} m ${trim((x + width) * (595.28 / 1320))} ${trim(841.89 - lineY * (595.28 / 1320))} l S Q`);
       }
-      text(row.label, x, textY, 16, "1D4ED8");
+      text(row.label, x, textY, style.section.fontSize, colors.accentDark);
       cursorY += isFirstSection ? 30 : 38;
       return;
     }
     if (row.type === "subsection") {
-      text(row.label, x, cursorY, 13, "0F172A");
+      text(row.label, x, cursorY, style.subsection.fontSize, colors.ink);
       cursorY += 24;
       return;
     }
     if (row.valueNextLine) {
-      text(row.label, x, cursorY, 14, "5B6B86");
-      text(row.value, x + width * 0.72, cursorY + 20, 14, "0F172A");
+      text(row.label, x, cursorY, style.label.fontSize, colors.muted);
+      text(row.value, x + width * 0.72, cursorY + 20, style.value.fontSize, colors.ink);
       cursorY += 56;
       return;
     }
-    text(row.label, x, cursorY, 14, "5B6B86");
-    text(row.value, x + width * 0.72, cursorY, 14, "0F172A");
+    text(row.label, x, cursorY, style.label.fontSize, colors.muted);
+    text(row.value, x + width * 0.72, cursorY, style.value.fontSize, colors.ink);
     cursorY += 38;
   });
 }
@@ -526,6 +733,8 @@ function drawPdfRows(ops, rows, x, y, width, text) {
 function drawPdfDetailRows(ops, rows, x, y, width, rowHeight, separatorHeight, fontSize, text, line) {
   let cursorY = y;
   const contentIndent = 14;
+  const style = getReportVisualStyle();
+  const colors = style.colors;
   let hasRenderedDetailItem = false;
   rows.forEach((row) => {
     if (row.type === "separator") {
@@ -541,21 +750,21 @@ function drawPdfDetailRows(ops, rows, x, y, width, rowHeight, separatorHeight, f
       const groupBottomGap = Math.max(3, rowHeight * 0.22);
       cursorY += groupTopGap;
       const rectY = cursorY - rowHeight * 0.78;
-      ops.push(`q ${pdfRgb("EEF5FF")} rg ${trim(x * scale)} ${trim(pageHeight - (rectY + groupH) * scale)} ${trim(width * scale)} ${trim(groupH * scale)} re f Q`);
-      text(row.label, x + 9, cursorY, Math.max(12, fontSize - 1), "1D4ED8");
+      ops.push(`q ${pdfRgb(colors.bg)} rg ${trim(x * scale)} ${trim(pageHeight - (rectY + groupH) * scale)} ${trim(width * scale)} ${trim(groupH * scale)} re f Q`);
+      text(row.label, x + 9, cursorY, Math.max(12, fontSize - 1), colors.accentDark);
       cursorY += groupH + groupBottomGap;
       return;
     }
     if (row.type === "message") {
       splitReportMessage(row.value).forEach((messageLine, index) => {
-        text(messageLine, x, cursorY + index * rowHeight * 0.78, 14, "5B6B86");
+        text(messageLine, x, cursorY + index * rowHeight * 0.78, style.label.fontSize, colors.muted);
       });
       cursorY += reportMessageHeight(row, rowHeight);
       hasRenderedDetailItem = true;
       return;
     }
-    text(row.label, x + contentIndent, cursorY, fontSize, "5B6B86");
-    text(row.value, x + width * 0.38 + contentIndent, cursorY, fontSize, "0F172A");
+    text(row.label, x + contentIndent, cursorY, fontSize, colors.muted);
+    text(row.value, x + width * 0.38 + contentIndent, cursorY, fontSize, colors.ink);
     cursorY += rowHeight;
     hasRenderedDetailItem = true;
   });
@@ -569,7 +778,7 @@ async function renderDiagramJpeg(width, height) {
   canvas.width = Math.round(width * scale);
   canvas.height = Math.round(height * scale);
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#f8fbff";
+  ctx.fillStyle = getReportVisualStyle().colors.diagramBg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
   const blob = await canvasToBlob(canvas, "image/jpeg", 0.92);
@@ -598,6 +807,13 @@ function pdfTextHex(value) {
 
 if (typeof module !== "undefined") {
   module.exports = {
+    formatReportHeaderRows,
     formatReportTwinPortUsage,
+    getReportDiagramViewportRect,
+    getReportDiagramRequiredHeight,
+    makeReportDiagramSvgFromCurrentMarkup,
+    getReportHeaderMetaStyle,
+    getReportHeaderSpacing,
+    getReportVisualStyle,
   };
 }

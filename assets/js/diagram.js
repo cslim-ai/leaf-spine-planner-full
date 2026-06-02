@@ -34,7 +34,7 @@ function makeDiagram({ input, best }) {
   const nodes = [];
 
   spineXs.forEach((x, i) => {
-    nodes.push(switchNode("spine", x, spineY, switchW, switchH, `Spine ${i + 1}`, { device: `Spine ${i + 1}` }));
+    nodes.push(switchNode("spine", x, spineY, switchW, switchH, `Spine ${i + 1}`, { device: `Spine ${i + 1}`, deviceKey: `spine-${i}` }));
   });
 
   leafXs.forEach((leafX, leafIndex) => {
@@ -55,12 +55,14 @@ function makeDiagram({ input, best }) {
             title: `${leafDevice} uplink`,
             source: leafDevice,
             target: spineDevice,
+            sourceKey: `leaf-${leafIndex}`,
+            targetKey: `spine-${spineIndex}`,
           },
         ));
       }
     });
 
-    nodes.push(switchNode("leaf", leafX, leafY, switchW, switchH, `Leaf ${leafIndex + 1}`, { device: `Leaf ${leafIndex + 1}` }));
+    nodes.push(switchNode("leaf", leafX, leafY, switchW, switchH, `Leaf ${leafIndex + 1}`, { device: `Leaf ${leafIndex + 1}`, deviceKey: `leaf-${leafIndex}` }));
   });
 
   serverXs.forEach((serverX, serverIndex) => {
@@ -83,11 +85,13 @@ function makeDiagram({ input, best }) {
           title: `Node NIC ${nicIndex + 1}`,
           source: nodeDevice,
           target: leafDevice,
+          sourceKey: `node-${serverIndex}`,
+          targetKey: `leaf-${leafIndex}`,
         },
       ));
     }
 
-    nodes.push(serverNode(serverX, serverY, serverW, serverH, serverNumber, input.serverNicPorts));
+    nodes.push(serverNode(serverX, serverY, serverW, serverH, serverNumber, input.serverNicPorts, `Node #${serverNumber}`, { device: `Node #${serverNumber}`, deviceKey: `node-${serverIndex}` }));
   });
 
   return `
@@ -106,11 +110,11 @@ function makeDiagramFromGeometry(geometry) {
     item.x2,
     item.y2,
     item.kind || "link",
-    { stroke: item.color, title: item.title, source: item.source, target: item.target },
+    { stroke: item.color, title: item.title, source: item.source, target: item.target, sourceKey: item.sourceKey, targetKey: item.targetKey },
   ));
   const nodes = [
-    ...geometry.switches.map((sw) => switchNode(sw.kind, sw.x, sw.y, sw.w, sw.h, sw.label, { device: sw.device || sw.label })),
-    ...geometry.servers.map((server) => serverNode(server.x, server.y, server.w, server.h, server.number, server.nicCount, server.label, { device: server.device || server.label })),
+    ...geometry.switches.map((sw) => switchNode(sw.kind, sw.x, sw.y, sw.w, sw.h, sw.label, { device: sw.device || sw.label, deviceKey: sw.deviceKey })),
+    ...geometry.servers.map((server) => serverNode(server.x, server.y, server.w, server.h, server.number, server.nicCount, server.label, { device: server.device || server.label, deviceKey: server.deviceKey })),
     ...(geometry.ellipsis || []).map((item) => ellipsisNode(item.x, item.y, item.w, item.h, item.label)),
   ];
 
@@ -410,6 +414,44 @@ function openDiagramWindow() {
         return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, "").replace(/\\.$/, "");
       }
 
+      function getDiagramHighlightItemSelector() {
+        return "[data-device], [data-source], [data-target], [data-source-key], [data-target-key]";
+      }
+
+      function usesDiagramUniqueHighlightKeys(targetSvg) {
+        return !!(targetSvg && targetSvg.querySelector && targetSvg.querySelector("[data-device-key], [data-source-key], [data-target-key]"));
+      }
+
+      function getDiagramHighlightKey(item, strictKeys) {
+        if (strictKeys) return (item && item.dataset && item.dataset.deviceKey) || "";
+        return (item && item.dataset && (item.dataset.deviceKey || item.dataset.device)) || "";
+      }
+
+      function getDiagramLinkSourceKey(link, strictKeys) {
+        if (strictKeys) return (link && link.dataset && link.dataset.sourceKey) || "";
+        return (link && link.dataset && (link.dataset.sourceKey || link.dataset.source)) || "";
+      }
+
+      function getDiagramLinkTargetKey(link, strictKeys) {
+        if (strictKeys) return (link && link.dataset && link.dataset.targetKey) || "";
+        return (link && link.dataset && (link.dataset.targetKey || link.dataset.target)) || "";
+      }
+
+      function isDiagramLinkConnectedToKey(link, selectedKey, strictKeys) {
+        return getDiagramLinkSourceKey(link, strictKeys) === selectedKey || getDiagramLinkTargetKey(link, strictKeys) === selectedKey;
+      }
+
+      function getConnectedHighlightKeys(links, selectedKey, strictKeys) {
+        const highlightedKeys = new Set([selectedKey]);
+        Array.from(links || []).forEach((link) => {
+          const sourceKey = getDiagramLinkSourceKey(link, strictKeys);
+          const targetKey = getDiagramLinkTargetKey(link, strictKeys);
+          if (sourceKey === selectedKey && targetKey) highlightedKeys.add(targetKey);
+          if (targetKey === selectedKey && sourceKey) highlightedKeys.add(sourceKey);
+        });
+        return highlightedKeys;
+      }
+
       function viewportSize() {
         const rect = svg ? svg.getBoundingClientRect() : { width: 0, height: 0 };
         let width = Math.min(defaultViewWidth, baseWidth);
@@ -588,7 +630,7 @@ function openDiagramWindow() {
 
       function clearHighlight() {
         if (!svg) return;
-        svg.querySelectorAll("[data-device], [data-source][data-target]").forEach((item) => {
+        svg.querySelectorAll(getDiagramHighlightItemSelector()).forEach((item) => {
           item.classList.remove("is-selected", "is-highlighted", "is-dimmed");
         });
       }
@@ -600,19 +642,21 @@ function openDiagramWindow() {
           clearHighlight();
           return;
         }
-        const selectedDevice = node.dataset.device;
-        const highlightedDevices = new Set([selectedDevice]);
-        svg.querySelectorAll("[data-source][data-target]").forEach((link) => {
-          if (link.dataset.source === selectedDevice) highlightedDevices.add(link.dataset.target);
-          if (link.dataset.target === selectedDevice) highlightedDevices.add(link.dataset.source);
-        });
+        const strictKeys = usesDiagramUniqueHighlightKeys(svg);
+        const selectedKey = getDiagramHighlightKey(node, strictKeys);
+        if (!selectedKey) {
+          clearHighlight();
+          return;
+        }
+        const links = svg.querySelectorAll("[data-source-key], [data-target-key], [data-source][data-target]");
+        const highlightedDevices = getConnectedHighlightKeys(links, selectedKey, strictKeys);
         svg.querySelectorAll("[data-device]").forEach((item) => {
-          const highlighted = highlightedDevices.has(item.dataset.device);
+          const highlighted = highlightedDevices.has(getDiagramHighlightKey(item, strictKeys));
           item.classList.toggle("is-selected", highlighted);
           item.classList.toggle("is-dimmed", !highlighted);
         });
-        svg.querySelectorAll("[data-source][data-target]").forEach((link) => {
-          const connected = link.dataset.source === selectedDevice || link.dataset.target === selectedDevice;
+        links.forEach((link) => {
+          const connected = isDiagramLinkConnectedToKey(link, selectedKey, strictKeys);
           link.classList.toggle("is-highlighted", connected);
           link.classList.toggle("is-dimmed", !connected);
         });

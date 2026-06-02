@@ -44,7 +44,7 @@ function getDiagramGeometry({ input, best }) {
 
   spineXs.forEach((x, index) => {
     const label = podCount > 1 ? `${fabricGroupLabel(Math.floor(index / perPodSpines), input, best)} Spine ${(index % perPodSpines) + 1}` : `Spine ${index + 1}`;
-    switches.push({ kind: "spine", x, y: spineY, w: switchW, h: switchH, label, device: label });
+    switches.push({ kind: "spine", x, y: spineY, w: switchW, h: switchH, label, device: label, deviceKey: `spine-${index}` });
   });
 
   leafXs.forEach((leafX, leafIndex) => {
@@ -65,11 +65,13 @@ function getDiagramGeometry({ input, best }) {
           title: `Leaf ${leafIndex + 1} uplink`,
           source: podCount > 1 ? `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`,
           target: podCount > 1 ? `${fabricGroupLabel(Math.floor((spineStart + localSpineIndex) / perPodSpines), input, best)} Spine ${((spineStart + localSpineIndex) % perPodSpines) + 1}` : `Spine ${spineStart + localSpineIndex + 1}`,
+          sourceKey: `leaf-${leafIndex}`,
+          targetKey: `spine-${spineStart + localSpineIndex}`,
         });
       }
     });
     const label = podCount > 1 ? `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`;
-    switches.push({ kind: "leaf", x: leafX, y: leafY, w: switchW, h: switchH, label, device: label });
+    switches.push({ kind: "leaf", x: leafX, y: leafY, w: switchW, h: switchH, label, device: label, deviceKey: `leaf-${leafIndex}` });
   });
 
   serverXs.forEach((serverX, serverIndex) => {
@@ -94,10 +96,12 @@ function getDiagramGeometry({ input, best }) {
           title: podCount > 1 ? `Node NIC ${nicIndex + 1} ${fabricGroupLabel(groupIndex, input, best)}` : `Node NIC ${nicIndex + 1}`,
           source: `Node #${serverIndex + 1}`,
           target: podCount > 1 ? `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`,
+          sourceKey: `node-${serverIndex}`,
+          targetKey: `leaf-${leafIndex}`,
         });
       });
     }
-    servers.push({ x: serverX, y: serverY, w: serverW, h: serverH, number: serverIndex + 1, nicCount: input.serverNicPorts, label: `Node #${serverIndex + 1}`, device: `Node #${serverIndex + 1}`, ports });
+    servers.push({ x: serverX, y: serverY, w: serverW, h: serverH, number: serverIndex + 1, nicCount: input.serverNicPorts, label: `Node #${serverIndex + 1}`, device: `Node #${serverIndex + 1}`, deviceKey: `node-${serverIndex}`, ports });
   });
 
   return normalizeGeometryHorizontal({
@@ -159,7 +163,7 @@ function getPptDiagramGeometry({ input, best }) {
 
   spinePositions.forEach((position, index) => {
     const label = podCount > 1 ? `${fabricGroupLabel(index, input, best)} Spine ${(index % perPodSpines) + 1}` : `Spine ${index + 1}`;
-    switches.push({ kind: "spine", x: position.x, y: position.y, w: switchW, h: switchH, label, device: label });
+    switches.push({ kind: "spine", x: position.x, y: position.y, w: switchW, h: switchH, label, device: label, deviceKey: `spine-${index}` });
   });
 
   leafPositions.forEach((leafPosition, leafIndex) => {
@@ -180,11 +184,13 @@ function getPptDiagramGeometry({ input, best }) {
           title: `Leaf ${leafIndex + 1} uplink`,
           source: podCount > 1 ? `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`,
           target: podCount > 1 ? `${fabricGroupLabel(Math.floor((spineStart + localSpineIndex) / perPodSpines), input, best)} Spine ${((spineStart + localSpineIndex) % perPodSpines) + 1}` : `Spine ${spineStart + localSpineIndex + 1}`,
+          sourceKey: `leaf-${leafIndex}`,
+          targetKey: `spine-${spineStart + localSpineIndex}`,
         });
       }
     });
     const label = podCount > 1 ? `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`;
-    switches.push({ kind: "leaf", x: leafPosition.x, y: leafPosition.y, w: switchW, h: switchH, label, device: label });
+    switches.push({ kind: "leaf", x: leafPosition.x, y: leafPosition.y, w: switchW, h: switchH, label, device: label, deviceKey: `leaf-${leafIndex}` });
   });
 
   serverPositions.forEach((serverPosition, serverIndex) => {
@@ -210,10 +216,12 @@ function getPptDiagramGeometry({ input, best }) {
           title: podCount > 1 ? `Node NIC ${nicIndex + 1} ${fabricGroupLabel(groupIndex, input, best)}` : `Node NIC ${nicIndex + 1}`,
           source: `Node #${serverIndex + 1}`,
           target: podCount > 1 ? `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`,
+          sourceKey: `node-${serverIndex}`,
+          targetKey: `leaf-${leafIndex}`,
         });
       });
     }
-    servers.push({ x: serverPosition.x, y: serverPosition.y, w: serverW, h: serverH, number: serverIndex + 1, nicCount: input.serverNicPorts, label: `Node #${serverIndex + 1}`, device: `Node #${serverIndex + 1}`, ports });
+    servers.push({ x: serverPosition.x, y: serverPosition.y, w: serverW, h: serverH, number: serverIndex + 1, nicCount: input.serverNicPorts, label: `Node #${serverIndex + 1}`, device: `Node #${serverIndex + 1}`, deviceKey: `node-${serverIndex}`, ports });
   });
 
   return normalizeGeometryHorizontal({ width, height, labels, lines, switches, servers, labelGutter });
@@ -281,7 +289,7 @@ function getSummaryDiagramGeometry({ input, best }) {
       return;
     }
     const label = podCount > 1 ? `${fabricGroupLabel(Math.floor(entry.index / perPodSpines), input, best)} Spine ${(entry.index % perPodSpines) + 1}` : `Spine ${entry.index + 1}`;
-    switches.push({ kind: "spine", x: position.x, y: position.y, w: switchW, h: switchH, label, device: label });
+    switches.push({ kind: "spine", x: position.x, y: position.y, w: switchW, h: switchH, label, device: label, deviceKey: `spine-${entry.index}` });
   });
 
   leafEntries.forEach((entry) => {
@@ -291,7 +299,7 @@ function getSummaryDiagramGeometry({ input, best }) {
       return;
     }
     const label = podCount > 1 ? `${fabricGroupLabel(Math.floor(entry.index / perPodLeafs), input, best)} Leaf ${(entry.index % perPodLeafs) + 1}` : `Leaf ${entry.index + 1}`;
-    switches.push({ kind: "leaf", x: position.x, y: position.y, w: switchW, h: switchH, label, device: label });
+    switches.push({ kind: "leaf", x: position.x, y: position.y, w: switchW, h: switchH, label, device: label, deviceKey: `leaf-${entry.index}` });
   });
 
   leafEntries.filter((entry) => entry.type === "node").forEach((leafEntry) => {
@@ -312,6 +320,8 @@ function getSummaryDiagramGeometry({ input, best }) {
           title: `Leaf ${leafEntry.index + 1} uplink`,
           source: leafEntry.type === "node" ? (podCount > 1 ? `${fabricGroupLabel(Math.floor(leafEntry.index / perPodLeafs), input, best)} Leaf ${(leafEntry.index % perPodLeafs) + 1}` : `Leaf ${leafEntry.index + 1}`) : "",
           target: spineEntry.type === "node" ? (podCount > 1 ? `${fabricGroupLabel(Math.floor(spineEntry.index / perPodSpines), input, best)} Spine ${(spineEntry.index % perPodSpines) + 1}` : `Spine ${spineEntry.index + 1}`) : "",
+          sourceKey: `leaf-${leafEntry.index}`,
+          targetKey: `spine-${spineEntry.index}`,
         });
       }
     });
@@ -355,10 +365,12 @@ function getSummaryDiagramGeometry({ input, best }) {
           target: linkLeafEntry.type === "node"
             ? (podCount > 1 ? `${fabricGroupLabel(Math.floor(linkLeafEntry.index / perPodLeafs), input, best)} Leaf ${(linkLeafEntry.index % perPodLeafs) + 1}` : `Leaf ${linkLeafEntry.index + 1}`)
             : "",
+          sourceKey: `node-${entry.index}`,
+          targetKey: linkLeafEntry.type === "node" ? `leaf-${linkLeafEntry.index}` : "",
         });
       });
     }
-    servers.push({ x: position.x, y: position.y, w: serverW, h: serverH, number: entry.index + 1, nicCount: input.serverNicPorts, label: `Node #${entry.index + 1}`, device: `Node #${entry.index + 1}`, ports });
+    servers.push({ x: position.x, y: position.y, w: serverW, h: serverH, number: entry.index + 1, nicCount: input.serverNicPorts, label: `Node #${entry.index + 1}`, device: `Node #${entry.index + 1}`, deviceKey: `node-${entry.index}`, ports });
   });
 
   return normalizeGeometryHorizontal({
@@ -636,7 +648,9 @@ function line(x1, y1, x2, y2, className, options = {}) {
   const title = options.title ? `<title>${options.title}</title>` : "";
   const source = options.source ? ` data-source="${escapeXml(options.source)}"` : "";
   const target = options.target ? ` data-target="${escapeXml(options.target)}"` : "";
-  return `<line class="${className}" x1="${trim(x1)}" y1="${trim(y1)}" x2="${trim(x2)}" y2="${trim(y2)}"${source}${target}${stroke}>${title}</line>`;
+  const sourceKey = options.sourceKey ? ` data-source-key="${escapeXml(options.sourceKey)}"` : "";
+  const targetKey = options.targetKey ? ` data-target-key="${escapeXml(options.targetKey)}"` : "";
+  return `<line class="${className}" x1="${trim(x1)}" y1="${trim(y1)}" x2="${trim(x2)}" y2="${trim(y2)}"${source}${target}${sourceKey}${targetKey}${stroke}>${title}</line>`;
 }
 
 function switchNode(className, x, y, w, h, text, options = {}) {
@@ -645,13 +659,14 @@ function switchNode(className, x, y, w, h, text, options = {}) {
   const firstPortX = x - w / 2 + 14;
   const device = options.device || text;
   const deviceAttr = device ? ` data-device="${escapeXml(device)}"` : "";
+  const deviceKeyAttr = options.deviceKey ? ` data-device-key="${escapeXml(options.deviceKey)}"` : "";
   const ports = Array.from({ length: portCount }, (_, index) => {
     const px = firstPortX + index * portGap;
     return `<rect class="switch-port" x="${px}" y="${y - 4}" width="4" height="5" rx="1"></rect>`;
   }).join("");
 
   return `
-    <g class="node ${className}"${deviceAttr}>
+    <g class="node ${className}"${deviceAttr}${deviceKeyAttr}>
       <rect class="switch-body" x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="4"></rect>
       <rect class="switch-face" x="${x - w / 2 + 6}" y="${y - h / 2 + 5}" width="${w - 12}" height="${h - 10}" rx="2"></rect>
       ${ports}
@@ -664,6 +679,7 @@ function switchNode(className, x, y, w, h, text, options = {}) {
 function serverNode(x, y, w, h, serverNumber, nicCount, label = `Node #${serverNumber}`, options = {}) {
   const device = options.device || label;
   const deviceAttr = device ? ` data-device="${escapeXml(device)}"` : "";
+  const deviceKeyAttr = options.deviceKey ? ` data-device-key="${escapeXml(options.deviceKey)}"` : "";
   const ports = Array.from({ length: nicCount }, (_, index) => {
     const portX = nicPortX(x, w, nicCount, index);
     return `<rect class="nic-port" x="${portX - 3}" y="${y - h / 2 + 7}" width="6" height="8" rx="1" style="fill: ${nicColor(index)}">
@@ -672,7 +688,7 @@ function serverNode(x, y, w, h, serverNumber, nicCount, label = `Node #${serverN
   }).join("");
 
   return `
-    <g class="node server"${deviceAttr}>
+    <g class="node server"${deviceAttr}${deviceKeyAttr}>
       <rect class="server-body" x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="6"></rect>
       <rect class="server-face" x="${x - w / 2 + 6}" y="${y - h / 2 + 16}" width="${w - 12}" height="${h - 24}" rx="3"></rect>
       <circle class="server-led" cx="${x + w / 2 - 12}" cy="${y + h / 2 - 10}" r="2.5"></circle>
