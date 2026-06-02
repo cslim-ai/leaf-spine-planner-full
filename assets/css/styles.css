@@ -598,7 +598,7 @@ h2 {
 dl {
   display: grid;
   grid-template-columns: minmax(132px, 0.85fr) minmax(0, 1fr);
-  gap: 6px 8px;
+  gap: 9px 8px;
   margin: 0;
 }
 
@@ -626,14 +626,14 @@ dd.is-warning {
 .detail-separator {
   grid-column: 1 / -1;
   height: 1px;
-  margin: 2px 0;
+  margin: 4px 0;
   border-top: 1px solid var(--line);
 }
 
 .detail-group {
   grid-column: 1 / -1;
-  margin: 8px 0 1px;
-  padding: 7px 9px;
+  margin: 12px 0 2px;
+  padding: 8px 9px;
   border-radius: 6px;
   background: #eef5ff;
   color: var(--accent-dark);
