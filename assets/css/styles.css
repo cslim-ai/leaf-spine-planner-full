@@ -82,18 +82,17 @@ body {
 .app {
   position: relative;
   width: 100%;
-  max-width: 1320px;
   margin: 0;
   height: 100vh;
-  padding: 20px 20px 74px;
+  padding: 12px 12px 40px;
   overflow: hidden;
 }
 
 .app-footer {
   position: absolute;
-  right: 20px;
-  bottom: 20px;
-  left: 20px;
+  right: 12px;
+  bottom: 10px;
+  left: 12px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -135,9 +134,10 @@ body {
 
 .workspace {
   display: grid;
-  grid-template-columns: 380px minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
+  grid-template-columns: 320px minmax(560px, 1fr) 360px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
   height: 100%;
   min-height: 0;
 }
@@ -468,27 +468,17 @@ button:hover {
   background: #b91c1c;
 }
 
-.results {
-  max-height: 100%;
-  min-height: 0;
-  overflow: hidden;
-  overscroll-behavior: contain;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 16px;
-}
-
+.results,
 .results-scroll {
-  display: grid;
-  gap: 16px;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 4px;
-  overscroll-behavior: contain;
+  display: contents;
 }
 
 .summary-shell {
   position: relative;
+  grid-column: 3;
+  grid-row: 1;
+  align-self: start;
+  min-width: 0;
 }
 
 .language-control {
@@ -521,13 +511,13 @@ button:hover {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .metric {
-  min-height: 116px;
-  padding: 18px 16px 18px 24px;
+  min-height: 86px;
+  padding: 14px 14px 13px;
 }
 
 .metric span {
@@ -539,13 +529,34 @@ button:hover {
 
 .metric strong {
   display: block;
-  margin-top: 6px;
-  font-size: 32px;
+  margin-top: 4px;
+  font-size: 26px;
 }
 
 .detail,
 .diagram-panel {
   padding: 18px;
+}
+
+.diagram-panel {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.detail {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: start;
+  height: calc(100vh - 246px);
+  margin-top: 194px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 h2 {
@@ -586,8 +597,8 @@ h2 {
 
 dl {
   display: grid;
-  grid-template-columns: minmax(180px, 0.7fr) 1fr;
-  gap: 7px 16px;
+  grid-template-columns: minmax(132px, 0.85fr) minmax(0, 1fr);
+  gap: 6px 8px;
   margin: 0;
 }
 
@@ -598,12 +609,12 @@ dt {
 }
 
 dl > dt:not(.detail-group):not(.detail-separator) {
-  padding-left: 14px;
+  padding-left: 6px;
 }
 
 dd {
   margin: 0;
-  padding-left: 4px;
+  padding-left: 0;
   font-size: 14px;
   font-weight: 750;
 }
@@ -648,10 +659,11 @@ dd.is-warning {
 
 .diagram-title {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
   align-items: start;
   margin-bottom: 12px;
+  min-width: 0;
 }
 
 .diagram-heading {
@@ -688,17 +700,17 @@ dd.is-warning {
 
 .diagram-actions {
   display: flex;
-  gap: 16px;
+  gap: 8px;
   align-items: center;
-  flex-wrap: nowrap;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  justify-content: flex-start;
   min-width: 0;
   overflow: visible;
 }
 
 @media (min-width: 1600px) {
   .workspace {
-    grid-template-columns: 380px minmax(0, 1fr);
+    grid-template-columns: 340px minmax(720px, 1fr) 380px;
   }
 
   .summary-grid {
@@ -846,8 +858,8 @@ dd.is-warning {
   border-radius: 8px;
   background: #fff;
   overscroll-behavior: contain;
-  height: 560px;
-  height: clamp(460px, calc(100vh - 540px), 540px);
+  height: auto;
+  min-height: 0;
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
@@ -1051,7 +1063,13 @@ svg {
     white-space: normal;
   }
 
-  .workspace,
+  .workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    height: auto;
+    overflow: visible;
+  }
+
   .sidebar,
   .summary-grid {
     grid-template-columns: 1fr;
@@ -1069,7 +1087,9 @@ svg {
 
   .sidebar-scroll,
   .inputs,
-  .results {
+  .results,
+  .detail,
+  .diagram-panel {
     max-height: none;
     overflow: visible;
     padding-right: 0;
@@ -1083,13 +1103,16 @@ svg {
     display: contents;
   }
 
-  .results-scroll {
-    overflow: visible;
-    padding-right: 0;
+  .summary-shell,
+  .detail,
+  .diagram-panel {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .diagram {
     height: 520px;
+    min-height: 460px;
   }
 
   dl {
