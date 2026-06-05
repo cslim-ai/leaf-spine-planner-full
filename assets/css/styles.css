@@ -17,6 +17,9 @@
   --leaf: #2563eb;
   --spine: #b45309;
   --server: #475569;
+  --footer-bottom-offset: 10px;
+  --footer-reserved-height: 30px;
+  --footer-content-gap: 20px;
 }
 
 @font-face {
@@ -86,14 +89,14 @@ body {
   min-width: 1650px;
   margin: 0;
   height: 100vh;
-  padding: 12px 12px 40px;
+  padding: 12px 12px calc(var(--footer-bottom-offset) + var(--footer-reserved-height) + var(--footer-content-gap));
   overflow: hidden;
 }
 
 .app-footer {
   position: absolute;
   right: 12px;
-  bottom: 10px;
+  bottom: var(--footer-bottom-offset);
   left: 12px;
   display: flex;
   align-items: flex-start;
@@ -136,7 +139,7 @@ body {
 
 .workspace {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr) 420px;
+  grid-template-columns: 340px minmax(0, 1fr) 420px;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   align-items: stretch;
@@ -155,6 +158,7 @@ body {
 }
 
 .sidebar-scroll {
+  display: grid;
   min-height: 0;
   overflow-y: auto;
   padding-right: 4px;
@@ -172,7 +176,9 @@ body {
 .inputs {
   display: grid;
   gap: 12px;
+  align-content: start;
   min-width: 0;
+  min-height: 100%;
   padding: 20px;
 }
 
@@ -563,7 +569,7 @@ button:hover {
   grid-column: 3;
   grid-row: 1 / span 2;
   align-self: start;
-  height: calc(100vh - 246px);
+  height: calc(100% - 194px);
   margin-top: 194px;
   min-height: 0;
   overflow-y: auto;
@@ -1049,24 +1055,6 @@ svg {
   fill: var(--muted);
   font-size: 14px;
   font-weight: 800;
-}
-
-@media (max-width: 980px) {
-  .app {
-    padding: 14px 14px 88px;
-  }
-
-  .app-footer {
-    right: 14px;
-    bottom: 20px;
-    left: 14px;
-    gap: 12px;
-  }
-
-  .app-footer-notice {
-    white-space: normal;
-  }
-
 }
 
 @media print {
