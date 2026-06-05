@@ -69,8 +69,8 @@ function getDiagramGeometry({ input, best }) {
   const leafY = spineY + spineLeafGap;
   const serverY = leafY + leafServerGap;
   const height = Math.round(serverY + serverH / 2 + 58);
-  const spineXs = distribute(center, shownSpines, expandedRowSpacing(shownSpines, 126, serverRowWidth * 0.38));
-  const leafXs = distribute(center, shownLeafs, expandedRowSpacing(shownLeafs, Math.max(120, Math.min(160, width / Math.max(shownLeafs, 1) * 0.8)), serverRowWidth * 0.62));
+  const spineXs = distribute(center, shownSpines, expandedRowSpacing(shownSpines, 126, serverRowWidth * 0.25));
+  const leafXs = distribute(center, shownLeafs, expandedRowSpacing(shownLeafs, Math.max(120, Math.min(160, width / Math.max(shownLeafs, 1) * 0.8)), serverRowWidth * 0.31));
   const podCount = best.podCount || 1;
   const perPodLeafs = best.perPodLeafs || shownLeafs;
   const perPodSpines = best.perPodSpines || shownSpines;

@@ -6,6 +6,8 @@
 // Diagram rendering, topology window, and topology PowerPoint export helpers.
 // This file is loaded before app.js; functions use app globals at call time.
 
+const DIAGRAM_EXPORT_CONTENT_SCALE = 0.8;
+
 function makeDiagram({ input, best }) {
   const shownSpines = best.spines;
   const shownLeafs = best.leafCount;
@@ -676,7 +678,18 @@ function openDiagramWindow() {
         clone.setAttribute("viewBox", "0 0 " + baseWidth + " " + baseHeight);
         clone.setAttribute("width", baseWidth);
         clone.setAttribute("height", baseHeight);
+        scaleExportContent(clone, baseWidth, baseHeight);
         return clone;
+      }
+
+      function scaleExportContent(targetSvg, width, height) {
+        const scale = 0.8;
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.setAttribute("transform", "translate(" + trim(width / 2) + " " + trim(height / 2) + ") scale(" + scale + ") translate(" + trim(-width / 2) + " " + trim(-height / 2) + ")");
+        Array.from(targetSvg.childNodes)
+          .filter((node) => node.nodeType === Node.ELEMENT_NODE && !["title", "style"].includes(node.tagName.toLowerCase()))
+          .forEach((node) => group.appendChild(node));
+        targetSvg.appendChild(group);
       }
 
       function adjustLabelBadges(targetSvg) {
@@ -988,7 +1001,21 @@ function makeExportSvgClone(svg) {
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   clone.insertBefore(makePngSvgStyleElement(), clone.firstChild);
   clone.insertBefore(makeSvgBackgroundRect(width, height), clone.children[1] || null);
+  scaleExportContent(clone, width, height);
   return { clone, width, height };
+}
+
+function scaleExportContent(svg, width, height, scale = DIAGRAM_EXPORT_CONTENT_SCALE) {
+  const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  group.setAttribute("transform", `translate(${trim(width / 2)} ${trim(height / 2)}) scale(${trim(scale)}) translate(${trim(-width / 2)} ${trim(-height / 2)})`);
+  [...svg.childNodes]
+    .filter((node) => {
+      if (node.nodeType !== Node.ELEMENT_NODE) return false;
+      const tagName = node.tagName.toLowerCase();
+      return !["title", "style"].includes(tagName) && node.dataset.exportBackground !== "true";
+    })
+    .forEach((node) => group.appendChild(node));
+  svg.appendChild(group);
 }
 
 function adjustLabelBadges(svg) {
@@ -1017,6 +1044,7 @@ function makeSvgBackgroundRect(width, height) {
   rect.setAttribute("width", width);
   rect.setAttribute("height", height);
   rect.setAttribute("fill", "#ffffff");
+  rect.dataset.exportBackground = "true";
   return rect;
 }
 

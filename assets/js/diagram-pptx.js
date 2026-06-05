@@ -33,12 +33,15 @@ function buildPptxWithPptxGen(result, viewMode = diagramViewMode) {
   const slideW = 13.333;
   const slideH = 7.5;
   const margin = 0.25;
+  const exportScale = typeof DIAGRAM_EXPORT_CONTENT_SCALE === "number" ? DIAGRAM_EXPORT_CONTENT_SCALE : 0.8;
 
   const slide = pptx.addSlide();
 
-  const scale = Math.min((slideW - margin * 2) / geometry.width, (slideH - margin * 2) / geometry.height);
-  const toX = (value) => margin + value * scale;
-  const toY = (value) => margin + value * scale;
+  const scale = Math.min((slideW - margin * 2) / geometry.width, (slideH - margin * 2) / geometry.height) * exportScale;
+  const offsetX = (slideW - geometry.width * scale) / 2;
+  const offsetY = (slideH - geometry.height * scale) / 2;
+  const toX = (value) => offsetX + value * scale;
+  const toY = (value) => offsetY + value * scale;
   const toL = (value) => value * scale;
 
   geometry.labels.forEach((label) => {
