@@ -12,6 +12,7 @@ const {
   getReportDiagramViewportRect,
   getReportDiagramRequiredHeight,
   getReportDiagramSourceSize,
+  getReportDiagramContentViewBox,
   getReportVisualStyle,
 } = require("../assets/js/report-layout");
 
@@ -97,6 +98,24 @@ assertEqual(
   const size = getReportDiagramSourceSize();
   assertEqual(size.width, 16, "report diagram should use a browser-independent fixed source width");
   assertEqual(size.height, 9, "report diagram should use a browser-independent fixed source height");
+}
+
+{
+  const viewBox = getReportDiagramContentViewBox({
+    getBBox() {
+      return { x: 100, y: 50, width: 600, height: 300 };
+    },
+  });
+  assertEqual(viewBox, "68 18 664 364", "report diagram should crop to padded content bounds for larger report rendering");
+}
+
+{
+  const viewBox = getReportDiagramContentViewBox({
+    getBBox() {
+      return { x: 0, y: 0, width: 600, height: 300 };
+    },
+  });
+  assertEqual(viewBox, "-32 -32 664 364", "report diagram should keep symmetric padding when content starts at the origin");
 }
 
 {

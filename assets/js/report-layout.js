@@ -48,6 +48,7 @@ const REPORT_VISUAL_STYLE = {
   detail: { labelFontWeight: 800, valueFontWeight: 750, messageFontWeight: 400 },
 };
 const REPORT_DIAGRAM_SOURCE_SIZE = { width: 16, height: 9 };
+const REPORT_DIAGRAM_CONTENT_PADDING = 32;
 
 async function renderReportCanvas(generatedAtText = formatDisplayTimestamp(new Date())) {
   const fontCss = await getEmbeddedReportFontCss();
@@ -450,7 +451,7 @@ function makeVisibleDiagramSvgMarkup(width, height) {
 
 function makeReportDiagramSvgFromElement(svg, width, height) {
   const clone = svg.cloneNode(true);
-  prepareReportDiagramSvgClone(clone, width, height);
+  prepareReportDiagramSvgClone(clone, width, height, getReportDiagramContentViewBox(svg));
   return stripReportDiagramStyleState(new XMLSerializer().serializeToString(clone));
 }
 
@@ -459,6 +460,25 @@ function makeReportDiagramSvgFromCurrentMarkup(markup, width, height) {
   if (!svg) return "";
   prepareReportDiagramSvgClone(svg, width, height);
   return stripReportDiagramStyleState(serializeSvgNode(svg));
+}
+
+function getReportDiagramContentViewBox(svg, padding = REPORT_DIAGRAM_CONTENT_PADDING) {
+  if (!svg || typeof svg.getBBox !== "function") return "";
+
+  try {
+    const box = svg.getBBox();
+    if (!Number.isFinite(box.x) || !Number.isFinite(box.y) || !Number.isFinite(box.width) || !Number.isFinite(box.height)) return "";
+    if (box.width <= 0 || box.height <= 0) return "";
+
+    const safePadding = Math.max(0, Number(padding) || 0);
+    const x = box.x - safePadding;
+    const y = box.y - safePadding;
+    const width = box.width + safePadding * 2;
+    const height = box.height + safePadding * 2;
+    return `${reportTrim(x)} ${reportTrim(y)} ${reportTrim(width)} ${reportTrim(height)}`;
+  } catch (_error) {
+    return "";
+  }
 }
 
 function parseSvgMarkup(markup) {
@@ -484,9 +504,12 @@ function createStringSvgNode(svgText) {
   };
 }
 
-function prepareReportDiagramSvgClone(svg, width, height) {
+function prepareReportDiagramSvgClone(svg, width, height, contentViewBox = "") {
   svg.setAttribute("width", width);
   svg.setAttribute("height", height);
+  if (contentViewBox) {
+    svg.setAttribute("viewBox", contentViewBox);
+  }
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
   svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   stripReportDiagramInteractionState(svg);
@@ -804,6 +827,7 @@ if (typeof module !== "undefined") {
     getReportDiagramViewportRect,
     getReportDiagramRequiredHeight,
     getReportDiagramSourceSize,
+    getReportDiagramContentViewBox,
     makeReportDiagramSvgFromCurrentMarkup,
     getReportHeaderMetaStyle,
     getReportHeaderSpacing,
