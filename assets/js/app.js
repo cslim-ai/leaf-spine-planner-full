@@ -201,13 +201,20 @@ if (window.PointerEvent) {
   window.addEventListener("mousemove", moveDiagramDrag);
   window.addEventListener("mouseup", endDiagramDrag);
 }
-window.addEventListener("resize", () => fitDiagramView());
+window.addEventListener("resize", () => {
+  updateBodyScrollbarCompensation();
+  fitDiagramView();
+});
 if (window.ResizeObserver) {
-  const diagramResizeObserver = new ResizeObserver(() => fitDiagramView());
+  const diagramResizeObserver = new ResizeObserver(() => {
+    updateBodyScrollbarCompensation();
+    fitDiagramView();
+  });
   diagramResizeObserver.observe(outputs.diagram);
 }
 
 initializeLocale();
+updateBodyScrollbarCompensation();
 updateMode();
 updateTwinPortState();
 renderCurrentConfigurationNow();
@@ -703,6 +710,13 @@ function render(result) {
   fitDiagramView();
   updateDiagramViewButtons();
   outputs.diagramCaption.textContent = "";
+}
+
+function updateBodyScrollbarCompensation() {
+  const root = document.documentElement;
+  const hasHorizontalScrollbar = root.scrollWidth > root.clientWidth + 1;
+  const scrollbarHeight = hasHorizontalScrollbar ? Math.max(0, window.innerHeight - root.clientHeight) : 0;
+  root.style.setProperty("--body-horizontal-scrollbar-height", `${scrollbarHeight}px`);
 }
 
 function makeInfeasibleMessage(result) {

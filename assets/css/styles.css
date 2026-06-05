@@ -20,6 +20,7 @@
   --footer-bottom-offset: 10px;
   --footer-reserved-height: 30px;
   --footer-content-gap: 20px;
+  --body-horizontal-scrollbar-height: 0px;
 }
 
 @font-face {
@@ -86,9 +87,9 @@ body {
 .app {
   position: relative;
   width: 100%;
-  min-width: 1650px;
+  min-width: 1700px;
   margin: 0;
-  height: 100vh;
+  height: calc(100vh - var(--body-horizontal-scrollbar-height));
   padding: 12px 12px calc(var(--footer-bottom-offset) + var(--footer-reserved-height) + var(--footer-content-gap));
   overflow: hidden;
 }
@@ -139,7 +140,7 @@ body {
 
 .workspace {
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr) 420px;
+  grid-template-columns: 380px minmax(0, 1fr) 420px;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   align-items: stretch;
@@ -148,6 +149,8 @@ body {
 }
 
 .sidebar {
+  grid-column: 1;
+  grid-row: 1 / span 2;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 16px;
@@ -158,7 +161,6 @@ body {
 }
 
 .sidebar-scroll {
-  display: grid;
   min-height: 0;
   overflow-y: auto;
   padding-right: 4px;
@@ -206,7 +208,7 @@ body {
 .eyebrow {
   margin: 0;
   color: var(--accent);
-  font-size: 29px;
+  font-size: 30px;
   font-weight: 900;
   letter-spacing: 0;
   line-height: 1.1;
