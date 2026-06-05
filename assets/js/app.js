@@ -72,6 +72,7 @@ const outputs = {
   importInputsFile: document.querySelector("#importInputsFile"),
   resetInputs: document.querySelector("#resetInputs"),
   languageSelect: document.querySelector("#languageSelect"),
+  appTitle: document.querySelector("#appTitle"),
 };
 
 const I18N = typeof LeafSpineI18n !== "undefined" ? LeafSpineI18n : null;
@@ -167,6 +168,12 @@ setupExportMenu(outputs.inputTransferMenu, outputs.importExportInputs, handleInp
 outputs.importInputsFile.addEventListener("change", handleImportInputsFile);
 outputs.resetInputs.addEventListener("click", () => resetInputsToDefaults());
 outputs.languageSelect?.addEventListener("change", () => setLocale(outputs.languageSelect.value));
+outputs.appTitle?.addEventListener("click", () => window.location.reload());
+outputs.appTitle?.addEventListener("keydown", (event) => {
+  if (!["Enter", " "].includes(event.key)) return;
+  event.preventDefault();
+  window.location.reload();
+});
 document.addEventListener("click", () => closeExportMenus());
 window.addEventListener("message", (event) => {
   if (event.data?.type === "leaf-spine-export-pptx") {

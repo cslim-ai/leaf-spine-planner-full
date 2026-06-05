@@ -45,7 +45,8 @@ function buildPortMap({ input, best }) {
         leafServerPortCounters[leafIndex] += 1;
         serverLeafRows.push({
           podIndex,
-          pod: podLabel(podIndex, podCount, input, best),
+          pod: fabricGroupPodLabel(podIndex, input, best),
+          plane: fabricGroupPlaneLabel(podIndex, input, best),
           section: "Node-Leaf",
           sourceDevice: `Node ${serverIndex + 1}`,
           sourcePort: podCount > 1 ? `NIC ${nicIndex + 1} ${podLabel(podIndex, podCount, input, best)}` : `NIC ${nicIndex + 1}`,
@@ -70,7 +71,8 @@ function buildPortMap({ input, best }) {
         spinePortCounters[spineIndex] += 1;
         leafSpineRows.push({
           podIndex,
-          pod: podLabel(podIndex, podCount, input, best),
+          pod: fabricGroupPodLabel(podIndex, input, best),
+          plane: fabricGroupPlaneLabel(podIndex, input, best),
           section: "Leaf-Spine",
           sourceDevice: leafLabel(leafIndex, perPodLeafs, podCount, input, best),
           sourcePort: switchPortLabel(leafPort - 1, uplinkTwinFactor),
@@ -134,6 +136,22 @@ function fabricGroupLabel(groupIndex, input = null, best = null) {
   if (sourceInput.useMultiPods) return `Pod ${groupIndex + 1}`;
   if (sourceInput.useMultiPlanar) return `Plane ${groupIndex + 1}`;
   return `Group ${groupIndex + 1}`;
+}
+
+function fabricGroupPodLabel(groupIndex, input = null, best = null) {
+  const sourceInput = input || currentResult?.input || {};
+  const sourceBest = best || currentResult?.best || {};
+  if (!sourceInput.useMultiPods) return "-";
+  const planeCount = sourceBest.planeCount || (sourceInput.useMultiPlanar ? 2 : 1);
+  return `Pod ${Math.floor(groupIndex / planeCount) + 1}`;
+}
+
+function fabricGroupPlaneLabel(groupIndex, input = null, best = null) {
+  const sourceInput = input || currentResult?.input || {};
+  const sourceBest = best || currentResult?.best || {};
+  if (!sourceInput.useMultiPlanar) return "-";
+  const planeCount = sourceBest.planeCount || (sourceInput.useMultiPlanar ? 2 : 1);
+  return `Plane ${(groupIndex % planeCount) + 1}`;
 }
 
 function serverFabricGroupIndexes(serverIndex, input, best) {
@@ -304,32 +322,6 @@ function makePortMapHtml(portMap) {
         font-weight: 800;
         flex: 0 0 auto;
       }
-      .filters {
-        display: grid;
-        grid-template-columns: minmax(220px, 1.2fr) 150px repeat(4, minmax(110px, 1fr));
-        gap: 8px;
-        margin-bottom: 10px;
-        flex: 0 0 auto;
-      }
-      .filters input,
-      .filters select {
-        width: 100%;
-        min-height: 34px;
-        border: 1px solid #c8d8ee;
-        border-radius: 6px;
-        padding: 0 10px;
-        color: #0f172a;
-        font: inherit;
-        font-size: 13px;
-        background: #fff;
-      }
-      .filter-count {
-        margin: 0 0 10px;
-        color: #5b6b86;
-        font-size: 13px;
-        font-weight: 700;
-        flex: 0 0 auto;
-      }
       .table-wrap {
         overflow: auto;
         flex: 1 1 auto;
@@ -376,7 +368,6 @@ function makePortMapHtml(portMap) {
       }
       @media (max-width: 900px) {
         .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       }
     </style>
   </head>
@@ -398,19 +389,6 @@ function makePortMapHtml(portMap) {
     </section>
     <main>
       ${warning}
-      <div class="filters" role="search" aria-label="${escapeXml(tr("portMap.filters.title"))}">
-        <input id="portMapSearch" type="search" placeholder="${escapeXml(tr("portMap.filters.search"))}" />
-        <select id="portMapSectionFilter">
-          <option value="">${escapeXml(tr("portMap.filters.allSegments"))}</option>
-          <option value="Node-Leaf">Node-Leaf</option>
-          <option value="Leaf-Spine">Leaf-Spine</option>
-        </select>
-        <input id="portMapPodFilter" type="search" placeholder="${escapeXml(tr("portMap.filters.pod"))}" />
-        <input id="portMapNodeFilter" type="search" placeholder="${escapeXml(tr("portMap.filters.node"))}" />
-        <input id="portMapLeafFilter" type="search" placeholder="${escapeXml(tr("portMap.filters.leaf"))}" />
-        <input id="portMapSpineFilter" type="search" placeholder="${escapeXml(tr("portMap.filters.spine"))}" />
-      </div>
-      <p id="portMapFilterCount" class="filter-count"></p>
       <div class="table-wrap">
         <table>
           <thead>
@@ -418,6 +396,7 @@ function makePortMapHtml(portMap) {
               <th>#</th>
               <th>${escapeXml(tr("portMap.columns.segment"))}</th>
               <th>${escapeXml(tr("portMap.columns.plane"))}</th>
+              <th>${escapeXml(tr("common.pod"))}</th>
               <th>${escapeXml(tr("portMap.columns.fromDevice"))}</th>
               <th>${escapeXml(tr("portMap.columns.fromPort"))}</th>
               <th>${escapeXml(tr("portMap.columns.toDevice"))}</th>
@@ -434,13 +413,6 @@ function makePortMapHtml(portMap) {
       const portMapRows = ${serializedRows};
       portMapRows.forEach((row, index) => { row.originalIndex = index; });
       const tbody = document.querySelector("#portMapBody");
-      const searchInput = document.querySelector("#portMapSearch");
-      const sectionFilter = document.querySelector("#portMapSectionFilter");
-      const podFilter = document.querySelector("#portMapPodFilter");
-      const nodeFilter = document.querySelector("#portMapNodeFilter");
-      const leafFilter = document.querySelector("#portMapLeafFilter");
-      const spineFilter = document.querySelector("#portMapSpineFilter");
-      const filterCount = document.querySelector("#portMapFilterCount");
       let visibleRows = portMapRows;
       let renderToken = 0;
       const podTones = [
@@ -473,6 +445,7 @@ function makePortMapHtml(portMap) {
           const tone = podTones[(row.podIndex || 0) % podTones.length];
           appendCell(tr, row.originalIndex + 1);
           appendCell(tr, row.section, "section " + sectionClass(row.section));
+          appendCell(tr, row.plane, "pod-cell", row.plane === "-" ? "" : "color:" + tone.text + "; background:" + tone.bg + ";");
           appendCell(tr, row.pod, "pod-cell", row.pod === "-" ? "" : "color:" + tone.text + "; background:" + tone.bg + ";");
           appendCell(tr, row.sourceDevice);
           appendCell(tr, row.sourcePort);
@@ -487,46 +460,7 @@ function makePortMapHtml(portMap) {
           requestAnimationFrame(() => renderRowsChunk(end, token));
         }
       }
-      function normalize(value) {
-        return String(value || "").trim().toLowerCase();
-      }
-      function rowContains(row, query) {
-        if (!query) return true;
-        return [row.section, row.pod, row.sourceDevice, row.sourcePort, row.targetDevice, row.targetPort, row.speed, row.group]
-          .some((value) => normalize(value).includes(query));
-      }
-      function rowDeviceContains(row, needle, prefix) {
-        if (!needle) return true;
-        return [row.sourceDevice, row.targetDevice]
-          .filter((value) => normalize(value).startsWith(prefix))
-          .some((value) => normalize(value).includes(needle));
-      }
-      function applyFilters() {
-        const query = normalize(searchInput.value);
-        const section = sectionFilter.value;
-        const pod = normalize(podFilter.value);
-        const node = normalize(nodeFilter.value);
-        const leaf = normalize(leafFilter.value);
-        const spine = normalize(spineFilter.value);
-        visibleRows = portMapRows.filter((row) => {
-          if (section && row.section !== section) return false;
-          if (pod && !normalize(row.pod).includes(pod)) return false;
-          if (!rowContains(row, query)) return false;
-          if (!rowDeviceContains(row, node, "node")) return false;
-          if (!rowDeviceContains(row, leaf, "leaf") && !rowDeviceContains(row, leaf, "pod") && leaf) return false;
-          if (!rowDeviceContains(row, spine, "spine") && !rowDeviceContains(row, spine, "pod") && spine) return false;
-          return true;
-        });
-        filterCount.textContent = ${JSON.stringify(tr("portMap.filters.count"))}.replace("{visible}", visibleRows.length.toLocaleString()).replace("{total}", portMapRows.length.toLocaleString());
-        tbody.innerHTML = "";
-        renderToken += 1;
-        requestAnimationFrame(() => renderRowsChunk(0, renderToken));
-      }
-      [searchInput, sectionFilter, podFilter, nodeFilter, leafFilter, spineFilter].forEach((field) => {
-        field.addEventListener("input", applyFilters);
-        field.addEventListener("change", applyFilters);
-      });
-      applyFilters();
+      requestAnimationFrame(() => renderRowsChunk(0, renderToken));
       function runExport(name, format) {
         if (!window.opener) {
           alert(${JSON.stringify(tr("portMap.notConnectedAlert"))});

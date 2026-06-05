@@ -47,6 +47,7 @@ const REPORT_VISUAL_STYLE = {
   panelTitle: { fontSize: 20, fontWeight: 900 },
   detail: { labelFontWeight: 800, valueFontWeight: 750, messageFontWeight: 400 },
 };
+const REPORT_DIAGRAM_SOURCE_SIZE = { width: 16, height: 9 };
 
 async function renderReportCanvas(generatedAtText = formatDisplayTimestamp(new Date())) {
   const fontCss = await getEmbeddedReportFontCss();
@@ -86,17 +87,16 @@ function makeReportSvg(generatedAtText = formatDisplayTimestamp(new Date()), emb
   const sidebarTopRowsY = sidebarDividerY + 28;
   const sidebarH = sidebarTopRowsY - margin + reportRowsHeight(sidebarRows) + 18;
   const metricH = 104;
-  const diagramSourceSize = getCurrentReportDiagramViewportSize();
-  const minDiagramH = getReportDiagramRequiredHeight(contentW - 32, diagramSourceSize, 420);
+  const diagramSourceSize = getReportDiagramSourceSize();
+  const diagramH = getReportDiagramRequiredHeight(contentW - 32, diagramSourceSize, 420);
   const detailContentOffset = 76;
-  const maxDetailH = pageHeight - (margin + metricH + gap + gap + minDiagramH) - margin;
+  const maxDetailH = pageHeight - (margin + metricH + gap + gap + diagramH) - margin;
   const detailScale = Math.min(1, Math.max(0.66, (maxDetailH - detailContentOffset) / reportDetailRowsHeight(detailRows)));
   const detailRowH = 24 * detailScale;
   const detailSeparatorH = 12 * detailScale;
   const detailFontSize = visualStyle.label.fontSize * detailScale;
   const detailH = Math.max(142, Math.min(maxDetailH, detailContentOffset + reportDetailRowsHeight(detailRows, detailRowH, detailSeparatorH)));
-  const diagramH = pageHeight - (margin + metricH + gap + detailH + gap) - margin;
-  const diagramY = margin + metricH + gap + detailH + gap;
+  const diagramY = pageHeight - margin - diagramH;
   const diagramViewportArea = { x: contentX + 16, y: diagramY + 52, width: contentW - 32, height: diagramH - 68 };
   const diagramViewportRect = getReportDiagramViewportRect(diagramViewportArea.width, diagramViewportArea.height, diagramSourceSize);
   const diagramViewportX = diagramViewportArea.x + diagramViewportRect.x;
@@ -386,15 +386,8 @@ function getReportVisualStyle() {
   };
 }
 
-function getCurrentReportDiagramViewportSize() {
-  if (typeof outputs !== "undefined") {
-    const svg = outputs.diagram?.querySelector?.("svg");
-    const rect = svg?.getBoundingClientRect?.();
-    if (rect?.width > 0 && rect?.height > 0) {
-      return { width: rect.width, height: rect.height };
-    }
-  }
-  return { width: 16, height: 9 };
+function getReportDiagramSourceSize() {
+  return { ...REPORT_DIAGRAM_SOURCE_SIZE };
 }
 
 function getReportDiagramViewportRect(availableWidth, availableHeight, sourceSize = {}) {
@@ -654,17 +647,16 @@ function getReportLayout() {
   const sidebarTopRowsY = sidebarDividerY + 28;
   const sidebarH = sidebarTopRowsY - margin + reportRowsHeight(sidebarRows) + 18;
   const metricH = 104;
-  const diagramSourceSize = getCurrentReportDiagramViewportSize();
-  const minDiagramH = getReportDiagramRequiredHeight(contentW - 32, diagramSourceSize, 420);
+  const diagramSourceSize = getReportDiagramSourceSize();
+  const diagramH = getReportDiagramRequiredHeight(contentW - 32, diagramSourceSize, 420);
   const detailContentOffset = 76;
-  const maxDetailH = pageHeight - (margin + metricH + gap + gap + minDiagramH) - margin;
+  const maxDetailH = pageHeight - (margin + metricH + gap + gap + diagramH) - margin;
   const detailScale = Math.min(1, Math.max(0.66, (maxDetailH - detailContentOffset) / reportDetailRowsHeight(detailRows)));
   const detailRowH = 24 * detailScale;
   const detailSeparatorH = 12 * detailScale;
   const detailFontSize = 14 * detailScale;
   const detailH = Math.max(142, Math.min(maxDetailH, detailContentOffset + reportDetailRowsHeight(detailRows, detailRowH, detailSeparatorH)));
-  const diagramH = pageHeight - (margin + metricH + gap + detailH + gap) - margin;
-  const diagramY = margin + metricH + gap + detailH + gap;
+  const diagramY = pageHeight - margin - diagramH;
   const diagramViewportArea = { x: contentX + 16, y: diagramY + 52, width: contentW - 32, height: diagramH - 68 };
   const diagramViewportRect = getReportDiagramViewportRect(diagramViewportArea.width, diagramViewportArea.height, diagramSourceSize);
   return {
@@ -811,6 +803,7 @@ if (typeof module !== "undefined") {
     formatReportTwinPortUsage,
     getReportDiagramViewportRect,
     getReportDiagramRequiredHeight,
+    getReportDiagramSourceSize,
     makeReportDiagramSvgFromCurrentMarkup,
     getReportHeaderMetaStyle,
     getReportHeaderSpacing,

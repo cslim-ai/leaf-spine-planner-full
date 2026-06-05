@@ -430,6 +430,7 @@ const LeafSpineI18n = (() => {
         columns: {
           index: "#",
           segment: "Segment",
+          pod: "Pod",
           plane: "Plane",
           fromDevice: "From Device",
           fromPort: "From Port",

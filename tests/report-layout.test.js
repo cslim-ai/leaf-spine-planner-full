@@ -11,6 +11,7 @@ const {
   getReportHeaderSpacing,
   getReportDiagramViewportRect,
   getReportDiagramRequiredHeight,
+  getReportDiagramSourceSize,
   getReportVisualStyle,
 } = require("../assets/js/report-layout");
 
@@ -90,6 +91,12 @@ assertEqual(
   assertEqual(reportSvg.includes("is-selected"), false, "report diagram should remove interactive highlight state");
   assertEqual(reportSvg.includes("is-highlighted"), false, "report diagram should remove highlighted link state");
   assertEqual(reportSvg.includes("is-dimmed"), false, "report diagram should remove dimmed state");
+}
+
+{
+  const size = getReportDiagramSourceSize();
+  assertEqual(size.width, 16, "report diagram should use a browser-independent fixed source width");
+  assertEqual(size.height, 9, "report diagram should use a browser-independent fixed source height");
 }
 
 {
