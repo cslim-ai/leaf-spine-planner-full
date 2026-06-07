@@ -20,6 +20,9 @@ const {
   priorLinksForSpine,
   linksForSpine,
 } = LeafSpineCalculator;
+const {
+  makeEcmpPathCountDetail,
+} = LeafSpineResultDetails;
 
 const fields = {
   serverCount: document.querySelector("#serverCount"),
@@ -659,6 +662,7 @@ function render(result) {
     ["group", tr("results.groups.leafSpineUplink")],
     [tr("results.labels.spineLinksPerLeaf"), `${formatCount(best.uplinksPerLeaf)} (${formatGbps(best.leafUplinkBandwidth)})`],
     [tr("results.labels.totalLeafSpineLinks"), `${formatCount(best.totalLeafUplinks)} (${formatGbps(totalLeafSpineUplinkBandwidth)})`],
+    makeEcmpPathCountDetail(best, tr),
     ["group", tr("results.groups.leafPortUsage")],
     [tr("results.labels.usedPortsPerLeaf"), tr("results.values.logicalPorts", { used: best.usedPortsPerLeaf.toLocaleString(), capacity: best.switchPortCapacity.toLocaleString(), logical: best.logicalPortsPerLeaf.toLocaleString() })],
     [tr("results.labels.requiredSparePortsPerLeaf"), formatCount(best.requiredLeafSparePorts || 0)],

@@ -343,12 +343,14 @@ function getSummaryDiagramGeometry({ input, best }) {
     switches.push({ kind: "leaf", x: position.x, y: position.y, w: switchW, h: switchH, label, device: label, deviceKey: `leaf-${entry.index}` });
   });
 
-  leafEntries.filter((entry) => entry.type === "node").forEach((leafEntry) => {
+  leafEntries.forEach((leafEntry) => {
     const leafPosition = leafPositions.get(leafEntry.key);
-    spineEntries.filter((entry) => entry.type === "node").forEach((spineEntry) => {
-      if (Math.floor(leafEntry.index / perPodLeafs) !== Math.floor(spineEntry.index / perPodSpines)) return;
+    spineEntries.forEach((spineEntry) => {
+      if (leafEntry.type !== "node" && spineEntry.type !== "node") return;
+      if (!summaryEntriesShareFabricGroup(leafEntry, perPodLeafs, spineEntry, perPodSpines)) return;
       const spinePosition = spinePositions.get(spineEntry.key);
-      const linkCount = geometryLinksForSpine(best.uplinksPerLeaf, perPodSpines, spineEntry.index % perPodSpines);
+      const representativeSpineIndex = spineEntry.index ?? spineEntry.rangeStart ?? 0;
+      const linkCount = geometryLinksForSpine(best.uplinksPerLeaf, perPodSpines, representativeSpineIndex % perPodSpines);
       for (let linkIndex = 0; linkIndex < linkCount; linkIndex += 1) {
         const offset = parallelOffset(linkIndex, linkCount, switchW - 28);
         lines.push({
@@ -361,8 +363,8 @@ function getSummaryDiagramGeometry({ input, best }) {
           title: `Leaf ${leafEntry.index + 1} uplink`,
           source: leafEntry.type === "node" ? (podCount > 1 ? `${fabricGroupLabel(Math.floor(leafEntry.index / perPodLeafs), input, best)} Leaf ${(leafEntry.index % perPodLeafs) + 1}` : `Leaf ${leafEntry.index + 1}`) : "",
           target: spineEntry.type === "node" ? (podCount > 1 ? `${fabricGroupLabel(Math.floor(spineEntry.index / perPodSpines), input, best)} Spine ${(spineEntry.index % perPodSpines) + 1}` : `Spine ${spineEntry.index + 1}`) : "",
-          sourceKey: `leaf-${leafEntry.index}`,
-          targetKey: `spine-${spineEntry.index}`,
+          sourceKey: leafEntry.type === "node" ? `leaf-${leafEntry.index}` : "",
+          targetKey: spineEntry.type === "node" ? `spine-${spineEntry.index}` : "",
         });
       }
     });
@@ -614,6 +616,21 @@ function serverFabricGroupIndexes(serverIndex, input, best) {
 function serverLocalIndex(serverIndex, input, best) {
   const podServerCount = best.podServerCount || input.serverCount;
   return input.useMultiPods ? serverIndex % podServerCount : serverIndex;
+}
+
+function summaryEntriesShareFabricGroup(leftEntry, leftPerGroup, rightEntry, rightPerGroup) {
+  const leftRange = summaryEntryFabricGroupRange(leftEntry, leftPerGroup);
+  const rightRange = summaryEntryFabricGroupRange(rightEntry, rightPerGroup);
+  return leftRange.start <= rightRange.end && rightRange.start <= leftRange.end;
+}
+
+function summaryEntryFabricGroupRange(entry, perGroup) {
+  const startIndex = entry.rangeStart ?? entry.index ?? 0;
+  const endIndex = entry.rangeEnd ?? entry.index ?? startIndex;
+  return {
+    start: Math.floor(startIndex / perGroup),
+    end: Math.floor(endIndex / perGroup),
+  };
 }
 
 function summarySwitchWidth(best, podCount) {
