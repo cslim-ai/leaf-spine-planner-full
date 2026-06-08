@@ -10,6 +10,7 @@ const GEOMETRY_CALCULATOR = typeof LeafSpineCalculator !== "undefined"
 const GEOMETRY_DIAGRAM_LABEL_GUTTER = typeof DIAGRAM_LABEL_GUTTER !== "undefined" ? DIAGRAM_LABEL_GUTTER : 0;
 const GEOMETRY_DIAGRAM_CONTENT_OFFSET = typeof DIAGRAM_CONTENT_OFFSET !== "undefined" ? DIAGRAM_CONTENT_OFFSET : 96;
 const GEOMETRY_DEFAULT_DIAGRAM_VIEW_WIDTH = typeof DEFAULT_DIAGRAM_VIEW_WIDTH !== "undefined" ? DEFAULT_DIAGRAM_VIEW_WIDTH : 920;
+const GEOMETRY_SUMMARY_POD_GROUP_GAP_EXTRA = 56;
 const GEOMETRY_FALLBACK_NIC_COLORS = [
   "#2563eb",
   "#16a34a",
@@ -79,7 +80,7 @@ function getDiagramGeometry({ input, best }) {
   const servers = [];
 
   spineXs.forEach((x, index) => {
-    const label = podCount > 1 ? `${fabricGroupLabel(Math.floor(index / perPodSpines), input, best)} Spine ${(index % perPodSpines) + 1}` : `Spine ${index + 1}`;
+    const label = spineDeviceLabel(index, input, best, perPodSpines, podCount);
     switches.push({ kind: "spine", x, y: spineY, w: switchW, h: switchH, label, device: label, deviceKey: `spine-${index}` });
   });
 
@@ -99,14 +100,14 @@ function getDiagramGeometry({ input, best }) {
           color: leafColor(leafIndex),
           kind: "uplink",
           title: `Leaf ${leafIndex + 1} uplink`,
-          source: podCount > 1 ? `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`,
-          target: podCount > 1 ? `${fabricGroupLabel(Math.floor((spineStart + localSpineIndex) / perPodSpines), input, best)} Spine ${((spineStart + localSpineIndex) % perPodSpines) + 1}` : `Spine ${spineStart + localSpineIndex + 1}`,
+          source: leafDeviceLabel(leafIndex, input, best, perPodLeafs, podCount),
+          target: spineDeviceLabel(spineStart + localSpineIndex, input, best, perPodSpines, podCount),
           sourceKey: `leaf-${leafIndex}`,
           targetKey: `spine-${spineStart + localSpineIndex}`,
         });
       }
     });
-    const label = podCount > 1 ? `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`;
+    const label = leafDeviceLabel(leafIndex, input, best, perPodLeafs, podCount);
     switches.push({ kind: "leaf", x: leafX, y: leafY, w: switchW, h: switchH, label, device: label, deviceKey: `leaf-${leafIndex}` });
   });
 
@@ -130,14 +131,15 @@ function getDiagramGeometry({ input, best }) {
           color,
           kind: "link",
           title: podCount > 1 ? `Node NIC ${nicIndex + 1} ${fabricGroupLabel(groupIndex, input, best)}` : `Node NIC ${nicIndex + 1}`,
-          source: `Node #${serverIndex + 1}`,
-          target: podCount > 1 ? `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`,
+          source: nodeDeviceLabelForGroup(serverIndex, input, best, groupIndex),
+          target: leafDeviceLabel(leafIndex, input, best, perPodLeafs, podCount),
           sourceKey: `node-${serverIndex}`,
           targetKey: `leaf-${leafIndex}`,
         });
       });
     }
-    servers.push({ x: serverX, y: serverY, w: serverW, h: serverH, number: serverIndex + 1, nicCount: input.serverNicPorts, label: `Node #${serverIndex + 1}`, device: `Node #${serverIndex + 1}`, deviceKey: `node-${serverIndex}`, ports });
+    const label = nodeDeviceLabel(serverIndex, input, best);
+    servers.push({ x: serverX, y: serverY, w: serverW, h: serverH, number: serverIndex + 1, nicCount: input.serverNicPorts, label, device: label, deviceKey: `node-${serverIndex}`, ports });
   });
 
   return normalizeGeometryHorizontal({
@@ -203,7 +205,7 @@ function getPptDiagramGeometry({ input, best }) {
   const serverPositions = makePptRowPositions(shownServers, serverPerRow, center, serverStartY, serverRowGap, serverGap);
 
   spinePositions.forEach((position, index) => {
-    const label = podCount > 1 ? `${fabricGroupLabel(index, input, best)} Spine ${(index % perPodSpines) + 1}` : `Spine ${index + 1}`;
+    const label = spineDeviceLabel(index, input, best, perPodSpines, podCount);
     switches.push({ kind: "spine", x: position.x, y: position.y, w: switchW, h: switchH, label, device: label, deviceKey: `spine-${index}` });
   });
 
@@ -223,14 +225,14 @@ function getPptDiagramGeometry({ input, best }) {
           color: leafColor(leafIndex),
           kind: "uplink",
           title: `Leaf ${leafIndex + 1} uplink`,
-          source: podCount > 1 ? `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`,
-          target: podCount > 1 ? `${fabricGroupLabel(Math.floor((spineStart + localSpineIndex) / perPodSpines), input, best)} Spine ${((spineStart + localSpineIndex) % perPodSpines) + 1}` : `Spine ${spineStart + localSpineIndex + 1}`,
+          source: leafDeviceLabel(leafIndex, input, best, perPodLeafs, podCount),
+          target: spineDeviceLabel(spineStart + localSpineIndex, input, best, perPodSpines, podCount),
           sourceKey: `leaf-${leafIndex}`,
           targetKey: `spine-${spineStart + localSpineIndex}`,
         });
       }
     });
-    const label = podCount > 1 ? `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`;
+    const label = leafDeviceLabel(leafIndex, input, best, perPodLeafs, podCount);
     switches.push({ kind: "leaf", x: leafPosition.x, y: leafPosition.y, w: switchW, h: switchH, label, device: label, deviceKey: `leaf-${leafIndex}` });
   });
 
@@ -255,14 +257,15 @@ function getPptDiagramGeometry({ input, best }) {
           color,
           kind: "link",
           title: podCount > 1 ? `Node NIC ${nicIndex + 1} ${fabricGroupLabel(groupIndex, input, best)}` : `Node NIC ${nicIndex + 1}`,
-          source: `Node #${serverIndex + 1}`,
-          target: podCount > 1 ? `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}` : `Leaf ${leafIndex + 1}`,
+          source: nodeDeviceLabelForGroup(serverIndex, input, best, groupIndex),
+          target: leafDeviceLabel(leafIndex, input, best, perPodLeafs, podCount),
           sourceKey: `node-${serverIndex}`,
           targetKey: `leaf-${leafIndex}`,
         });
       });
     }
-    servers.push({ x: serverPosition.x, y: serverPosition.y, w: serverW, h: serverH, number: serverIndex + 1, nicCount: input.serverNicPorts, label: `Node #${serverIndex + 1}`, device: `Node #${serverIndex + 1}`, deviceKey: `node-${serverIndex}`, ports });
+    const label = nodeDeviceLabel(serverIndex, input, best);
+    servers.push({ x: serverPosition.x, y: serverPosition.y, w: serverW, h: serverH, number: serverIndex + 1, nicCount: input.serverNicPorts, label, device: label, deviceKey: `node-${serverIndex}`, ports });
   });
 
   return normalizeGeometryHorizontal({ width, height, labels, lines, switches, servers, labelGutter });
@@ -288,21 +291,30 @@ function getSummaryDiagramGeometry({ input, best }) {
   const perPodLeafs = best.perPodLeafs || best.leafCount;
   const perPodSpines = best.perPodSpines || best.spines;
   const podServerCount = best.podServerCount || input.serverCount;
+  const summaryPlaneCount = best.planeCount || (input.useMultiPlanar ? 2 : 1);
+  const usePodSummaryGroups = input.useMultiPods && input.useMultiPlanar;
+  const summarySpinesPerPod = usePodSummaryGroups ? perPodSpines * summaryPlaneCount : perPodSpines;
+  const summaryLeafsPerPod = usePodSummaryGroups ? perPodLeafs * summaryPlaneCount : perPodLeafs;
   const switchW = summarySwitchWidth(best, podCount);
   const switchEntryLimit = summarySwitchEntryLimit(best, podCount);
-  const spineEntries = compactEntriesByPod(best.spines, perPodSpines, switchEntryLimit.spine, "spine");
-  const leafEntries = compactEntriesByPod(best.leafCount, perPodLeafs, switchEntryLimit.leaf, "leaf");
-  const serverEntries = compactEntriesByPod(input.serverCount, podServerCount, podCount > 1 ? 7 : 13, "server");
+  const spineEntries = usePodSummaryGroups
+    ? compactEntriesByActualPodPlanes(best.spines, perPodSpines, summaryPlaneCount, "spine")
+    : compactEntriesByPod(best.spines, summarySpinesPerPod, switchEntryLimit.spine, "spine");
+  const leafEntries = usePodSummaryGroups
+    ? compactEntriesByActualPodPlanes(best.leafCount, perPodLeafs, summaryPlaneCount, "leaf")
+    : compactEntriesByPod(best.leafCount, summaryLeafsPerPod, switchEntryLimit.leaf, "leaf");
+  const serverEntries = compactEntriesByPod(input.serverCount, podServerCount, podCount > 1 ? 7 : 13, "server", 5, { actualPodGroups: input.useMultiPods && input.useMultiPlanar });
   const switchH = 24;
   const serverW = serverNodeWidth(input.serverNicPorts);
   const activeNicPorts = geometryActiveServerNicPorts(input);
   const serverH = 62;
   const switchSlotWidth = Math.max(92, switchW + 18);
   const serverSlotWidth = Math.max(96, serverW + 16);
+  const podGroupGapExtra = input.useMultiPods ? GEOMETRY_SUMMARY_POD_GROUP_GAP_EXTRA : 0;
   const maxRowWidth = Math.max(
-    spineEntries.length * switchSlotWidth,
-    leafEntries.length * switchSlotWidth,
-    serverEntries.length * serverSlotWidth,
+    compactEntryRowWidth(spineEntries, switchSlotWidth, podGroupGapExtra),
+    compactEntryRowWidth(leafEntries, switchSlotWidth, podGroupGapExtra),
+    compactEntryRowWidth(serverEntries, serverSlotWidth, podGroupGapExtra),
   );
   const width = Math.max(920, labelGutter + maxRowWidth + 150);
   const summaryDensity = Math.max(spineEntries.length, leafEntries.length, serverEntries.length);
@@ -318,28 +330,28 @@ function getSummaryDiagramGeometry({ input, best }) {
   const switches = [];
   const servers = [];
   const ellipsis = [];
-  const spinePositions = placeCompactEntries(spineEntries, center, spineY, switchSlotWidth);
-  const leafPositions = placeCompactEntries(leafEntries, center, leafY, switchSlotWidth);
-  const serverPositions = placeCompactEntries(serverEntries, center, serverY, serverSlotWidth);
+  const spinePositions = placeCompactEntries(spineEntries, center, spineY, switchSlotWidth, podGroupGapExtra);
+  const leafPositions = placeCompactEntries(leafEntries, center, leafY, switchSlotWidth, podGroupGapExtra);
+  const serverPositions = placeCompactEntries(serverEntries, center, serverY, serverSlotWidth, podGroupGapExtra);
   const switchEllipsisW = Math.max(78, switchW);
 
   spineEntries.forEach((entry) => {
     const position = spinePositions.get(entry.key);
     if (entry.type === "ellipsis") {
-      ellipsis.push({ x: position.x, y: position.y, w: switchEllipsisW, h: 34, label: summaryHiddenLabel(entry, "Spine") });
+      ellipsis.push({ x: position.x, y: position.y, w: switchEllipsisW, h: 34, label: summaryHiddenLabel(entry, "Spine", input, best) });
       return;
     }
-    const label = podCount > 1 ? `${fabricGroupLabel(Math.floor(entry.index / perPodSpines), input, best)} Spine ${(entry.index % perPodSpines) + 1}` : `Spine ${entry.index + 1}`;
+    const label = spineDeviceLabel(entry.index, input, best, perPodSpines, podCount);
     switches.push({ kind: "spine", x: position.x, y: position.y, w: switchW, h: switchH, label, device: label, deviceKey: `spine-${entry.index}` });
   });
 
   leafEntries.forEach((entry) => {
     const position = leafPositions.get(entry.key);
     if (entry.type === "ellipsis") {
-      ellipsis.push({ x: position.x, y: position.y, w: switchEllipsisW, h: 34, label: summaryHiddenLabel(entry, "Leaf") });
+      ellipsis.push({ x: position.x, y: position.y, w: switchEllipsisW, h: 34, label: summaryHiddenLabel(entry, "Leaf", input, best) });
       return;
     }
-    const label = podCount > 1 ? `${fabricGroupLabel(Math.floor(entry.index / perPodLeafs), input, best)} Leaf ${(entry.index % perPodLeafs) + 1}` : `Leaf ${entry.index + 1}`;
+    const label = leafDeviceLabel(entry.index, input, best, perPodLeafs, podCount);
     switches.push({ kind: "leaf", x: position.x, y: position.y, w: switchW, h: switchH, label, device: label, deviceKey: `leaf-${entry.index}` });
   });
 
@@ -349,8 +361,7 @@ function getSummaryDiagramGeometry({ input, best }) {
       if (leafEntry.type !== "node" && spineEntry.type !== "node") return;
       if (!summaryEntriesShareFabricGroup(leafEntry, perPodLeafs, spineEntry, perPodSpines)) return;
       const spinePosition = spinePositions.get(spineEntry.key);
-      const representativeSpineIndex = spineEntry.index ?? spineEntry.rangeStart ?? 0;
-      const linkCount = geometryLinksForSpine(best.uplinksPerLeaf, perPodSpines, representativeSpineIndex % perPodSpines);
+      const linkCount = summaryLeafSpineLinkCount(best.uplinksPerLeaf, perPodSpines, spineEntry);
       for (let linkIndex = 0; linkIndex < linkCount; linkIndex += 1) {
         const offset = parallelOffset(linkIndex, linkCount, switchW - 28);
         lines.push({
@@ -361,8 +372,8 @@ function getSummaryDiagramGeometry({ input, best }) {
           color: leafColor(leafEntry.index),
           kind: "uplink",
           title: `Leaf ${leafEntry.index + 1} uplink`,
-          source: leafEntry.type === "node" ? (podCount > 1 ? `${fabricGroupLabel(Math.floor(leafEntry.index / perPodLeafs), input, best)} Leaf ${(leafEntry.index % perPodLeafs) + 1}` : `Leaf ${leafEntry.index + 1}`) : "",
-          target: spineEntry.type === "node" ? (podCount > 1 ? `${fabricGroupLabel(Math.floor(spineEntry.index / perPodSpines), input, best)} Spine ${(spineEntry.index % perPodSpines) + 1}` : `Spine ${spineEntry.index + 1}`) : "",
+          source: leafEntry.type === "node" ? leafDeviceLabel(leafEntry.index, input, best, perPodLeafs, podCount) : "",
+          target: spineEntry.type === "node" ? spineDeviceLabel(spineEntry.index, input, best, perPodSpines, podCount) : "",
           sourceKey: leafEntry.type === "node" ? `leaf-${leafEntry.index}` : "",
           targetKey: spineEntry.type === "node" ? `spine-${spineEntry.index}` : "",
         });
@@ -373,7 +384,7 @@ function getSummaryDiagramGeometry({ input, best }) {
   serverEntries.forEach((entry) => {
     const position = serverPositions.get(entry.key);
     if (entry.type === "ellipsis") {
-      ellipsis.push({ x: position.x, y: position.y, w: 78, h: 42, label: summaryHiddenLabel(entry, "Node") });
+      ellipsis.push({ x: position.x, y: position.y, w: 78, h: 42, label: summaryHiddenLabel(entry, "Node", input, best) });
       return;
     }
 
@@ -404,16 +415,17 @@ function getSummaryDiagramGeometry({ input, best }) {
           color,
           kind: "link",
           title: podCount > 1 ? `Node NIC ${nicIndex + 1} ${fabricGroupLabel(groupIndex, input, best)}` : `Node NIC ${nicIndex + 1}`,
-          source: `Node #${entry.index + 1}`,
+          source: nodeDeviceLabelForGroup(entry.index, input, best, groupIndex),
           target: linkLeafEntry.type === "node"
-            ? (podCount > 1 ? `${fabricGroupLabel(Math.floor(linkLeafEntry.index / perPodLeafs), input, best)} Leaf ${(linkLeafEntry.index % perPodLeafs) + 1}` : `Leaf ${linkLeafEntry.index + 1}`)
+            ? leafDeviceLabel(linkLeafEntry.index, input, best, perPodLeafs, podCount)
             : "",
           sourceKey: `node-${entry.index}`,
           targetKey: linkLeafEntry.type === "node" ? `leaf-${linkLeafEntry.index}` : "",
         });
       });
     }
-    servers.push({ x: position.x, y: position.y, w: serverW, h: serverH, number: entry.index + 1, nicCount: input.serverNicPorts, label: `Node #${entry.index + 1}`, device: `Node #${entry.index + 1}`, deviceKey: `node-${entry.index}`, ports });
+    const label = nodeDeviceLabel(entry.index, input, best);
+    servers.push({ x: position.x, y: position.y, w: serverW, h: serverH, number: entry.index + 1, nicCount: input.serverNicPorts, label, device: label, deviceKey: `node-${entry.index}`, ports });
   });
 
   return normalizeGeometryHorizontal({
@@ -453,7 +465,7 @@ function compactLayerEntries(count, maxEntries) {
   return entries;
 }
 
-function compactEntriesByPod(totalCount, perPodCount, maxEntriesPerPod, kind, maxPods = 5) {
+function compactEntriesByPod(totalCount, perPodCount, maxEntriesPerPod, kind, maxPods = 5, options = {}) {
   if (perPodCount >= totalCount) return compactLayerEntries(totalCount, maxEntriesPerPod);
 
   const entries = [];
@@ -477,6 +489,7 @@ function compactEntriesByPod(totalCount, perPodCount, maxEntriesPerPod, kind, ma
         rangeStart,
         rangeEnd,
         hiddenCount: Math.max(0, rangeEnd - rangeStart + 1),
+        actualPodIndex: options.actualPodGroups ? podStart : undefined,
       });
       return;
     }
@@ -498,6 +511,7 @@ function compactEntriesByPod(totalCount, perPodCount, maxEntriesPerPod, kind, ma
           rangeStart,
           rangeEnd,
           hiddenCount: Math.max(0, rangeEnd - rangeStart + 1),
+          actualPodIndex: options.actualPodGroups ? podIndex : undefined,
         });
         return;
       }
@@ -506,9 +520,72 @@ function compactEntriesByPod(totalCount, perPodCount, maxEntriesPerPod, kind, ma
         index: start + entry.index,
         key: `${kind}-pod-${podIndex}-node-${entry.index}`,
         podIndex,
+        actualPodIndex: options.actualPodGroups ? podIndex : undefined,
       });
     });
   });
+  return entries;
+}
+
+function compactEntriesByActualPodPlanes(totalCount, perPlaneCount, planeCount, kind, maxPods = 5) {
+  const entries = [];
+  const devicesPerPod = perPlaneCount * planeCount;
+  const podCount = Math.ceil(totalCount / devicesPerPod);
+  const podEntries = compactPodEntries(podCount, maxPods);
+
+  podEntries.forEach((podEntry) => {
+    if (podEntry.type === "ellipsis") {
+      const podStart = podEntry.rangeStart || 0;
+      const podEnd = podEntry.rangeEnd || podCount - 1;
+      const rangeStart = podStart * devicesPerPod;
+      const rangeEnd = Math.min(totalCount - 1, (podEnd + 1) * devicesPerPod - 1);
+      entries.push({
+        type: "ellipsis",
+        key: `${kind}-actual-pods-${podStart}-${podEnd}-ellipsis`,
+        podEllipsis: true,
+        actualPodIndex: podStart,
+        rangePodStart: podStart,
+        rangePodEnd: podEnd,
+        hiddenPodCount: podEnd - podStart + 1,
+        rangeStart,
+        rangeEnd,
+        hiddenCount: Math.max(0, rangeEnd - rangeStart + 1),
+      });
+      return;
+    }
+
+    const podIndex = podEntry.index;
+    for (let planeIndex = 0; planeIndex < planeCount; planeIndex += 1) {
+      const fabricGroupIndex = podIndex * planeCount + planeIndex;
+      const start = fabricGroupIndex * perPlaneCount;
+      if (start >= totalCount) continue;
+      const count = Math.min(perPlaneCount, totalCount - start);
+      compactLayerEntries(count, 3).forEach((entry) => {
+        if (entry.type === "ellipsis") {
+          entries.push({
+            ...entry,
+            key: `${kind}-pod-${podIndex}-plane-${planeIndex}-ellipsis`,
+            podIndex: fabricGroupIndex,
+            actualPodIndex: podIndex,
+            actualFabricGroupIndex: fabricGroupIndex,
+            rangeStart: start + entry.rangeStart,
+            rangeEnd: start + entry.rangeEnd,
+            hiddenCount: entry.hiddenCount,
+          });
+          return;
+        }
+        entries.push({
+          ...entry,
+          index: start + entry.index,
+          key: `${kind}-pod-${podIndex}-plane-${planeIndex}-node-${entry.index}`,
+          podIndex: fabricGroupIndex,
+          actualPodIndex: podIndex,
+          actualFabricGroupIndex: fabricGroupIndex,
+        });
+      });
+    }
+  });
+
   return entries;
 }
 
@@ -586,22 +663,76 @@ function shiftGeometryX(geometry, shift) {
   geometry.labels.forEach((item) => { item.x += shift; });
 }
 
-function summaryHiddenLabel(entry, label) {
+function summaryHiddenLabel(entry, label, input, best) {
   if (entry.podEllipsis) {
-    return `${entry.hiddenPodCount} Groups hidden`;
+    const groupText = hiddenFabricGroupText(input, label);
+    return `${entry.hiddenPodCount} ${groupText}\nhidden`;
   }
-  const podPrefix = entry.podIndex === undefined ? "" : `Group ${entry.podIndex + 1} `;
-  return `${podPrefix}${entry.hiddenCount} ${label} hidden`;
+  const groupLabel = hiddenEntryGroupLabel(entry, input, best);
+  if (entry.actualFabricGroupIndex !== undefined && groupLabel) {
+    return `${groupLabel}\n${entry.hiddenCount} ${label}\nhidden`;
+  }
+  const podPrefix = groupLabel ? `${groupLabel} - ` : "";
+  return `${podPrefix}${entry.hiddenCount} ${label}\nhidden`;
+}
+
+function hiddenEntryGroupLabel(entry, input, best) {
+  if (entry.actualFabricGroupIndex !== undefined) return fabricGroupLabel(entry.actualFabricGroupIndex, input, best);
+  if (entry.actualPodIndex !== undefined) return `Pod ${entry.actualPodIndex + 1}`;
+  if (entry.podIndex === undefined) return "";
+  return fabricGroupLabel(entry.podIndex, input, best);
+}
+
+function hiddenFabricGroupText(input, fallbackLabel) {
+  if (input.useMultiPods && input.useMultiPlanar) return "Pod";
+  if (input.useMultiPods) return "Pod";
+  if (input.useMultiPlanar) return "Plane";
+  return fallbackLabel;
 }
 
 function fabricGroupLabel(groupIndex, input, best) {
   const planeCount = best.planeCount || (input.useMultiPlanar ? 2 : 1);
   if (input.useMultiPods && input.useMultiPlanar) {
-    return `Pod ${Math.floor(groupIndex / planeCount) + 1} Plane ${(groupIndex % planeCount) + 1}`;
+    return `Pod ${Math.floor(groupIndex / planeCount) + 1} - Plane ${(groupIndex % planeCount) + 1}`;
   }
   if (input.useMultiPods) return `Pod ${groupIndex + 1}`;
   if (input.useMultiPlanar) return `Plane ${groupIndex + 1}`;
   return "";
+}
+
+function fabricDeviceLabel(groupIndex, kind, localIndex, globalIndex, input, best) {
+  const groupLabel = fabricGroupLabel(groupIndex, input, best);
+  const deviceLabel = `${kind} ${localIndex + 1}`;
+  if (!groupLabel) return `${kind} ${globalIndex + 1}`;
+  return input.useMultiPlanar && input.useMultiPods ? `${groupLabel}\n${deviceLabel}` : `${groupLabel} - ${deviceLabel}`;
+}
+
+function spineDeviceLabel(spineIndex, input, best, perPodSpines, podCount) {
+  const groupIndex = podCount > 1 ? Math.floor(spineIndex / perPodSpines) : 0;
+  const localIndex = podCount > 1 ? spineIndex % perPodSpines : spineIndex;
+  return fabricDeviceLabel(groupIndex, "Spine", localIndex, spineIndex, input, best);
+}
+
+function leafDeviceLabel(leafIndex, input, best, perPodLeafs, podCount) {
+  const groupIndex = podCount > 1 ? Math.floor(leafIndex / perPodLeafs) : 0;
+  const localIndex = podCount > 1 ? leafIndex % perPodLeafs : leafIndex;
+  return fabricDeviceLabel(groupIndex, "Leaf", localIndex, leafIndex, input, best);
+}
+
+function nodeDeviceLabel(serverIndex, input, best) {
+  return nodeDeviceLabelForGroup(serverIndex, input, best, null);
+}
+
+function nodeDeviceLabelForGroup(serverIndex, input, best, groupIndex) {
+  if (!input.useMultiPods && !input.useMultiPlanar) return `Node ${serverIndex + 1}`;
+  const multiPodCount = best.multiPodCount || Math.ceil(input.serverCount / Math.max(1, input.podServerCount || input.serverCount));
+  const podServerCount = best.podServerCount || input.serverCount;
+  const podIndex = Math.min(multiPodCount - 1, Math.floor(serverIndex / podServerCount));
+  const localNodeLabel = `Node ${(serverIndex % podServerCount) + 1}`;
+  if (input.useMultiPlanar) {
+    return input.useMultiPods ? `Pod ${podIndex + 1} - ${localNodeLabel}` : `Node ${serverIndex + 1}`;
+  }
+  return `Pod ${podIndex + 1} - ${localNodeLabel}`;
 }
 
 function serverFabricGroupIndexes(serverIndex, input, best) {
@@ -622,6 +753,19 @@ function summaryEntriesShareFabricGroup(leftEntry, leftPerGroup, rightEntry, rig
   const leftRange = summaryEntryFabricGroupRange(leftEntry, leftPerGroup);
   const rightRange = summaryEntryFabricGroupRange(rightEntry, rightPerGroup);
   return leftRange.start <= rightRange.end && rightRange.start <= leftRange.end;
+}
+
+function summaryLeafSpineLinkCount(uplinksPerLeaf, perPodSpines, spineEntry) {
+  if (spineEntry.type !== "ellipsis") {
+    return geometryLinksForSpine(uplinksPerLeaf, perPodSpines, (spineEntry.index ?? 0) % perPodSpines);
+  }
+  const rangeStart = spineEntry.rangeStart ?? spineEntry.index ?? 0;
+  const rangeEnd = spineEntry.rangeEnd ?? rangeStart;
+  let total = 0;
+  for (let spineIndex = rangeStart; spineIndex <= rangeEnd; spineIndex += 1) {
+    total += geometryLinksForSpine(uplinksPerLeaf, perPodSpines, spineIndex % perPodSpines);
+  }
+  return total;
 }
 
 function summaryEntryFabricGroupRange(entry, perGroup) {
@@ -658,13 +802,49 @@ function summarySwitchEntryLimit(best, podCount) {
   return { spine: 7, leaf: 9 };
 }
 
-function placeCompactEntries(entries, center, y, gap) {
+function placeCompactEntries(entries, center, y, gap, podGroupGapExtra = 0) {
   const positions = new Map();
-  const xs = distribute(center, entries.length, gap);
+  const xs = distributeCompactEntries(center, entries, gap, podGroupGapExtra);
   entries.forEach((entry, index) => {
     positions.set(entry.key, { x: xs[index], y });
   });
   return positions;
+}
+
+function compactEntryRowWidth(entries, gap, podGroupGapExtra = 0) {
+  if (entries.length <= 1) return gap;
+  return gap * entries.length + compactEntryPodBoundaryCount(entries) * podGroupGapExtra;
+}
+
+function distributeCompactEntries(center, entries, gap, podGroupGapExtra = 0) {
+  if (entries.length === 1) return [center];
+  const stepWidths = entries.slice(1).map((entry, index) => (
+    gap + compactEntriesCrossPodBoundary(entries[index], entry) * podGroupGapExtra
+  ));
+  const totalWidth = stepWidths.reduce((sum, step) => sum + step, 0);
+  let x = center - totalWidth / 2;
+  const xs = [x];
+  stepWidths.forEach((step) => {
+    x += step;
+    xs.push(x);
+  });
+  return xs;
+}
+
+function compactEntryPodBoundaryCount(entries) {
+  return entries.slice(1).reduce((count, entry, index) => count + compactEntriesCrossPodBoundary(entries[index], entry), 0);
+}
+
+function compactEntriesCrossPodBoundary(left, right) {
+  const leftPod = compactEntryPodGroup(left);
+  const rightPod = compactEntryPodGroup(right);
+  return leftPod !== undefined && rightPod !== undefined && leftPod !== rightPod ? 1 : 0;
+}
+
+function compactEntryPodGroup(entry) {
+  if (entry.actualPodIndex !== undefined) return entry.actualPodIndex;
+  if (entry.rangePodStart !== undefined) return entry.rangePodStart;
+  return entry.podIndex;
 }
 
 function placeCompactEntriesInRange(entries, left, right, y) {
@@ -758,7 +938,7 @@ function switchNode(className, x, y, w, h, text, options = {}) {
   `;
 }
 
-function serverNode(x, y, w, h, serverNumber, nicCount, label = `Node #${serverNumber}`, options = {}) {
+function serverNode(x, y, w, h, serverNumber, nicCount, label = `Node ${serverNumber}`, options = {}) {
   const device = options.device || label;
   const deviceAttr = device ? ` data-device="${escapeXml(device)}"` : "";
   const deviceKeyAttr = options.deviceKey ? ` data-device-key="${escapeXml(options.deviceKey)}"` : "";
@@ -794,15 +974,34 @@ function labelBadge(x, y, text, className = "") {
   const label = String(text || "");
   const { width, height } = labelBadgeSize(label);
   const textClass = ["node-label", className].filter(Boolean).join(" ");
+  const lines = labelLines(label);
+  const visualY = y + (height - 12.5) / 2;
+  const textMarkup = lines.length === 1
+    ? `<text class="${textClass}" x="${x}" y="${visualY}">${escapeXml(lines[0])}</text>`
+    : `<text class="${textClass}" x="${x}" y="${trim(visualY - ((lines.length - 1) * 11) / 2)}">${lines.map((lineText, index) => `<tspan x="${x}"${index === 0 ? "" : ' dy="11"'}>${escapeXml(lineText)}</tspan>`).join("")}</text>`;
   return `
-    <rect class="node-label-bg" x="${trim(x - width / 2)}" y="${trim(y - height / 2)}" width="${trim(width)}" height="${height}"></rect>
-    <text class="${textClass}" x="${x}" y="${y}">${escapeXml(label)}</text>
+    <rect class="node-label-bg" x="${trim(x - width / 2)}" y="${trim(visualY - height / 2)}" width="${trim(width)}" height="${trim(height)}"></rect>
+    ${textMarkup}
   `;
 }
 
 function labelBadgeSize(text) {
   const label = String(text || "");
-  const estimatedTextWidth = [...label].reduce((width, char) => {
+  const estimatedTextWidth = Math.max(...labelLines(label).map(estimateLabelTextWidth));
+  const nodeNumberPadding = /^Node\s+\d+$/i.test(label) ? 3 : 0;
+  return {
+    width: Math.max(18, estimatedTextWidth + 5 + nodeNumberPadding),
+    height: labelLines(label).length > 1 ? 12.5 + (labelLines(label).length - 1) * 11 : 12.5,
+  };
+}
+
+function labelLines(text) {
+  const lines = String(text || "").split(/\r?\n/).filter((lineText) => lineText.length > 0);
+  return lines.length ? lines : [""];
+}
+
+function estimateLabelTextWidth(label) {
+  return [...String(label || "")].reduce((width, char) => {
     if (/\s/.test(char)) return width + 3.2;
     if (/[#]/.test(char)) return width + 6.4;
     if (/[0-9]/.test(char)) return width + 5.8;
@@ -812,11 +1011,6 @@ function labelBadgeSize(text) {
     if (/[^\x00-\x7F]/.test(char)) return width + 9.6;
     return width + 4.8;
   }, 0);
-  const nodeNumberPadding = /^Node\s+#\d+$/i.test(label) ? 3 : 0;
-  return {
-    width: Math.max(18, estimatedTextWidth + 5 + nodeNumberPadding),
-    height: 12.5,
-  };
 }
 
 function pptLabelBadgeSize(text) {

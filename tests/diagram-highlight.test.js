@@ -36,14 +36,14 @@ function makeLink(source, target, sourceKey, targetKey) {
 }
 
 {
-  const selected = { dataset: { device: "Node #1", deviceKey: "node-1-pod-1-plane-1" } };
+  const selected = { dataset: { device: "Node 1", deviceKey: "node-1-pod-1-plane-1" } };
   assertEqual(getDiagramHighlightKey(selected), "node-1-pod-1-plane-1", "device highlight should prefer the unique device key");
 }
 
 {
   const links = [
-    makeLink("Node #1", "Pod 1 Plane 1 Leaf 1", "node-1-pod-1-plane-1", "leaf-1-pod-1-plane-1"),
-    makeLink("Node #1", "Pod 1 Plane 2 Leaf 1", "node-1-pod-1-plane-2", "leaf-1-pod-1-plane-2"),
+    makeLink("Pod 1 - Node 1", "Pod 1 - Plane 1\nLeaf 1", "node-1-pod-1-plane-1", "leaf-1-pod-1-plane-1"),
+    makeLink("Pod 1 - Node 1", "Pod 1 - Plane 2\nLeaf 1", "node-1-pod-1-plane-2", "leaf-1-pod-1-plane-2"),
   ];
   const connected = getConnectedHighlightKeys(links, "node-1-pod-1-plane-1");
   assertEqual(connected.has("leaf-1-pod-1-plane-1"), true, "selected node should include its directly connected leaf");
@@ -51,18 +51,18 @@ function makeLink(source, target, sourceKey, targetKey) {
 }
 
 {
-  const link = makeLink("Node #1", "Pod 1 Plane 2 Leaf 1", "node-1-pod-1-plane-2", "leaf-1-pod-1-plane-2");
+  const link = makeLink("Pod 1 - Node 1", "Pod 1 - Plane 2\nLeaf 1", "node-1-pod-1-plane-2", "leaf-1-pod-1-plane-2");
   assertEqual(isDiagramLinkConnectedToKey(link, "node-1-pod-1-plane-1"), false, "same display source should not connect when unique key differs");
 }
 
 {
-  const selected = { dataset: { device: "Node #1" } };
+  const selected = { dataset: { device: "Node 1" } };
   assertEqual(getDiagramHighlightKey(selected, true), "", "strict key mode should not fall back to duplicate display labels");
 }
 
 {
-  const link = makeLink("Node #1", "Leaf 1", "", "");
-  assertEqual(isDiagramLinkConnectedToKey(link, "Node #1", true), false, "strict key mode should not match links that only have duplicate display labels");
+  const link = makeLink("Node 1", "Leaf 1", "", "");
+  assertEqual(isDiagramLinkConnectedToKey(link, "Node 1", true), false, "strict key mode should not match links that only have duplicate display labels");
 }
 
 {

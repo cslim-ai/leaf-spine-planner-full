@@ -50,6 +50,70 @@ function wrappedGeometry(serverCount, leafCount, spines, serverNicPorts = 4) {
   });
 }
 
+function multiPodGeometry(viewFactory = getDiagramGeometry) {
+  const input = {
+    serverCount: 32,
+    serverNicPorts: 2,
+    useMultiPods: true,
+    useMultiPlanar: false,
+    podServerCount: 16,
+  };
+  const best = {
+    spines: 4,
+    leafCount: 8,
+    perPodSpines: 2,
+    perPodLeafs: 4,
+    podCount: 2,
+    multiPodCount: 2,
+    podServerCount: 16,
+    uplinksPerLeaf: 2,
+  };
+  return viewFactory({ input, best });
+}
+
+function multiPlanarPodGeometry(viewFactory = getDiagramGeometry) {
+  const input = {
+    serverCount: 32,
+    serverNicPorts: 2,
+    useMultiPods: true,
+    useMultiPlanar: true,
+    podServerCount: 16,
+  };
+  const best = {
+    spines: 8,
+    leafCount: 16,
+    perPodSpines: 2,
+    perPodLeafs: 4,
+    podCount: 4,
+    planeCount: 2,
+    multiPodCount: 2,
+    podServerCount: 16,
+    uplinksPerLeaf: 2,
+  };
+  return viewFactory({ input, best });
+}
+
+function multiPlanarGeometry(viewFactory = getDiagramGeometry) {
+  const input = {
+    serverCount: 16,
+    serverNicPorts: 2,
+    useMultiPods: false,
+    useMultiPlanar: true,
+    podServerCount: 16,
+  };
+  const best = {
+    spines: 4,
+    leafCount: 8,
+    perPodSpines: 2,
+    perPodLeafs: 4,
+    podCount: 2,
+    planeCount: 2,
+    podServerCount: 16,
+    uplinksPerLeaf: 2,
+  };
+  return viewFactory({ input, best });
+}
+
 function assertRatioNear(geometry, targetRatio, label) {
   const ratio = geometry.height / geometry.width;
   const lower = targetRatio - 0.015;
@@ -103,7 +167,7 @@ function countUplinksTouchingEllipsis(geometry) {
 
 function countUplinksFromLeafToSpineEllipsis(geometry, leafIndex = 0) {
   const spineEllipsisBounds = (geometry.ellipsis || [])
-    .filter((item) => item.label.includes("Spine hidden"))
+    .filter((item) => item.label.includes("Spine\nhidden"))
     .map((item) => ({
       left: item.x - item.w / 2,
       right: item.x + item.w / 2,
@@ -125,6 +189,159 @@ function countUplinksFromHiddenLeafToVisibleSpine(geometry) {
 
 function countUplinksFromHiddenLeafToHiddenSpine(geometry) {
   return geometry.lines.filter((line) => line.kind === "uplink" && !line.sourceKey && !line.targetKey).length;
+}
+
+function centerGap(left, right) {
+  return right.x - left.x;
+}
+
+{
+  const geometry = fullGeometry(8, 2, 2);
+  assert(geometry.servers[0].label === "Node 1", `full geometry node label should not include #: ${geometry.servers[0].label}`);
+  assert(geometry.servers[0].device === "Node 1", `full geometry node device should not include #: ${geometry.servers[0].device}`);
+  assert(!geometry.lines.some((item) => item.source.includes("Node #")), "full geometry link source should not include #");
+}
+
+{
+  [getDiagramGeometry, getPptDiagramGeometry, getSummaryDiagramGeometry].forEach((viewFactory) => {
+    const geometry = viewFactory({
+      input: {
+        serverCount: 64,
+        serverNicPorts: 4,
+        useMultiPods: false,
+        useMultiPlanar: false,
+      },
+      best: {
+        spines: 8,
+        leafCount: 16,
+        uplinksPerLeaf: 4,
+        podCount: 2,
+        perPodSpines: 4,
+        perPodLeafs: 8,
+        podServerCount: 64,
+      },
+    });
+    const visibleLabels = [
+      ...geometry.switches.map((item) => item.label),
+      ...geometry.servers.map((item) => item.label),
+      ...(geometry.ellipsis || []).map((item) => item.label),
+      ...geometry.lines.flatMap((item) => [item.source, item.target, item.title]),
+    ].filter(Boolean);
+    assert(!visibleLabels.some((label) => label.includes("Group")), "non-multi diagram labels should not include Group");
+  });
+}
+
+{
+  [getDiagramGeometry, getPptDiagramGeometry, getSummaryDiagramGeometry].forEach((viewFactory) => {
+    const geometry = multiPodGeometry(viewFactory);
+    assert(geometry.switches.some((item) => item.kind === "spine" && item.label === "Pod 1 - Spine 1"), "multi-pod Spine label should separate Pod and device with hyphen");
+    assert(geometry.switches.some((item) => item.kind === "leaf" && item.label === "Pod 1 - Leaf 1"), "multi-pod Leaf label should separate Pod and device with hyphen");
+    assert(geometry.servers.some((item) => item.label === "Pod 1 - Node 1"), "multi-pod Node label should include Pod and local Node number");
+    assert(geometry.servers.some((item) => item.label === "Pod 2 - Node 1"), "multi-pod Node label should restart numbering per Pod");
+    assert(!geometry.servers.some((item) => item.label.includes("#")), "multi-pod Node labels should not include #");
+    assert(!geometry.lines.some((item) => item.source.includes("Node #")), "multi-pod link source should not include #");
+  });
+}
+
+{
+  [getDiagramGeometry, getPptDiagramGeometry, getSummaryDiagramGeometry].forEach((viewFactory) => {
+    const geometry = multiPlanarPodGeometry(viewFactory);
+    assert(geometry.switches.some((item) => item.kind === "spine" && item.label === "Pod 1 - Plane 1\nSpine 1"), "multi-planar pod Spine label should show Pod before Plane on the first line");
+    assert(geometry.switches.some((item) => item.kind === "leaf" && item.label === "Pod 1 - Plane 1\nLeaf 1"), "multi-planar pod Leaf label should show Pod before Plane on the first line");
+    assert(geometry.servers.some((item) => item.label === "Pod 1 - Node 1"), "multi-planar pod Node label should show Pod only");
+    assert(geometry.servers.some((item) => item.label === "Pod 2 - Node 1"), "multi-planar pod Node label should use local node numbering per Pod");
+    assert(geometry.lines.some((item) => item.source === "Pod 1 - Node 1"), "multi-planar pod Node link source should show Pod only");
+    assert(!geometry.servers.some((item) => item.label.includes("Plane")), "multi-planar pod Node labels should not include Plane");
+  });
+}
+
+{
+  const geometry = getSummaryDiagramGeometry({
+    input: {
+      serverCount: 96,
+      serverNicPorts: 2,
+      useMultiPods: true,
+      useMultiPlanar: true,
+      podServerCount: 16,
+    },
+    best: {
+      spines: 48,
+      leafCount: 48,
+      perPodSpines: 4,
+      perPodLeafs: 4,
+      podCount: 12,
+      planeCount: 2,
+      multiPodCount: 6,
+      podServerCount: 16,
+      uplinksPerLeaf: 2,
+    },
+  });
+  const hiddenLabels = (geometry.ellipsis || []).map((item) => item.label);
+  const spineLabels = geometry.switches.filter((item) => item.kind === "spine").map((item) => item.label);
+  const leafLabels = geometry.switches.filter((item) => item.kind === "leaf").map((item) => item.label);
+  assert(spineLabels.some((label) => label === "Pod 1 - Plane 1\nSpine 1"), "multi-planar pod summary should show Plane 1 for the first visible Pod");
+  assert(spineLabels.some((label) => label === "Pod 1 - Plane 1\nSpine 4"), "multi-planar pod summary should show the last Spine in Plane 1 for the first visible Pod");
+  assert(spineLabels.some((label) => label === "Pod 1 - Plane 2\nSpine 1"), "multi-planar pod summary should show Plane 2 for the first visible Pod");
+  assert(spineLabels.some((label) => label === "Pod 1 - Plane 2\nSpine 4"), "multi-planar pod summary should show the last Spine in Plane 2 for the first visible Pod");
+  assert(spineLabels.some((label) => label === "Pod 6 - Plane 1\nSpine 1"), "multi-planar pod summary should show Plane 1 for the last visible Pod");
+  assert(spineLabels.some((label) => label === "Pod 6 - Plane 2\nSpine 1"), "multi-planar pod summary should show Plane 2 for the last visible Pod");
+  assert(leafLabels.some((label) => label === "Pod 1 - Plane 1\nLeaf 1"), "multi-planar pod summary should show the first Leaf in Plane 1 for the first visible Pod");
+  assert(leafLabels.some((label) => label === "Pod 1 - Plane 1\nLeaf 4"), "multi-planar pod summary should show the last Leaf in Plane 1 for the first visible Pod");
+  assert(leafLabels.some((label) => label === "Pod 1 - Plane 2\nLeaf 1"), "multi-planar pod summary should show the first Leaf in Plane 2 for the first visible Pod");
+  assert(leafLabels.some((label) => label === "Pod 1 - Plane 2\nLeaf 4"), "multi-planar pod summary should show the last Leaf in Plane 2 for the first visible Pod");
+  assert(!spineLabels.some((label) => label.includes("Pod 3")), "multi-planar pod summary should hide middle Pods instead of mixing Plane/Pod groups");
+  assert(!hiddenLabels.some((label) => label.includes("Group")), "multi-planar pod hidden labels should not include Group");
+  assert(hiddenLabels.some((label) => label.includes("Pod\nhidden")), "multi-planar pod hidden fabric labels should describe hidden Pods instead of Plane/Pod groups");
+  assert(hiddenLabels.some((label) => label.includes("Pod 1 - Plane 1\n2 Spine\nhidden")), "multi-planar pod summary should place Plane hidden counts on their own line");
+  assert(hiddenLabels.some((label) => label.includes("Pod 1 - Plane 2\n2 Leaf\nhidden")), "multi-planar pod summary should place Plane hidden Leaf counts on their own line");
+  assert(hiddenLabels.some((label) => label.includes("Pod 1 - 10 Node\nhidden")), "multi-planar pod hidden Node labels should use the actual Pod label");
+  assert(!hiddenLabels.some((label) => label.includes("Plane 2 - Pod 3")), "multi-planar pod hidden labels should not interpret actual Pod indexes as fabric group indexes");
+  assert(hiddenLabels.every((label) => !label.includes(" hidden")), "hidden badge labels should wrap hidden onto the next line");
+}
+
+{
+  const geometry = getSummaryDiagramGeometry({
+    input: {
+      serverCount: 96,
+      serverNicPorts: 2,
+      useMultiPods: true,
+      useMultiPlanar: true,
+      podServerCount: 16,
+    },
+    best: {
+      spines: 48,
+      leafCount: 48,
+      perPodSpines: 4,
+      perPodLeafs: 4,
+      podCount: 12,
+      planeCount: 2,
+      multiPodCount: 6,
+      podServerCount: 16,
+      uplinksPerLeaf: 4,
+    },
+  });
+  const visibleLeafUplinks = geometry.lines.filter((line) => line.kind === "uplink" && line.sourceKey === "leaf-0");
+  assert(visibleLeafUplinks.length === 4, `summary visible Leaf should keep all 4 uplinks including hidden Spines: ${visibleLeafUplinks.length}`);
+}
+
+{
+  const geometry = multiPlanarPodGeometry(getSummaryDiagramGeometry);
+  const spines = geometry.switches.filter((item) => item.kind === "spine").sort((left, right) => left.x - right.x);
+  const pod1PlaneGap = centerGap(spines[0], spines[1]);
+  const podBoundaryGap = centerGap(spines[3], spines[4]);
+  assert(podBoundaryGap >= pod1PlaneGap + 40, `summary Pod boundary gap should be wider than same-Pod gap: same ${pod1PlaneGap}, boundary ${podBoundaryGap}`);
+}
+
+{
+  [getDiagramGeometry, getPptDiagramGeometry, getSummaryDiagramGeometry].forEach((viewFactory) => {
+    const geometry = multiPlanarGeometry(viewFactory);
+    assert(geometry.switches.some((item) => item.kind === "spine" && item.label === "Plane 1 - Spine 1"), "multi-planar Spine label should keep Plane and device on one line");
+    assert(geometry.switches.some((item) => item.kind === "leaf" && item.label === "Plane 1 - Leaf 1"), "multi-planar Leaf label should keep Plane and device on one line");
+    assert(geometry.servers.some((item) => item.label === "Node 1"), "multi-planar Node label should not include Plane");
+    assert(geometry.lines.some((item) => item.source === "Node 1"), "multi-planar Node link source should not include Plane");
+    assert(!geometry.servers.some((item) => item.label.includes("Plane")), "multi-planar Node labels should not include Plane");
+    assert(!geometry.switches.some((item) => item.label.includes("\n")), "multi-planar switch labels should not wrap when only Plane is enabled");
+  });
 }
 
 {
@@ -198,10 +415,12 @@ function countUplinksFromHiddenLeafToHiddenSpine(geometry) {
   assert(result.feasible, "512-node multi-planar multi-pod twin-port input should be feasible");
   assert(result.best.perPodSpines === 8, `test fixture should produce 8 spines per fabric group: ${result.best.perPodSpines}`);
   const summary = getSummaryDiagramGeometry(result);
-  assert(summary.ellipsis.some((item) => item.label.includes("Spine hidden")), "summary geometry should keep Spine hidden entries");
+  const visibleLeafUplinks = summary.lines.filter((line) => line.kind === "uplink" && line.sourceKey === "leaf-0");
+  assert(summary.ellipsis.some((item) => item.label.includes("Spine\nhidden")), "summary geometry should keep Spine hidden entries");
   assert(!summary.ellipsis.some((item) => item.label.includes("links per Leaf")), "summary hidden Spine label should stay compact");
   assert(countUplinksTouchingEllipsis(summary) > 0, "summary geometry should show leaf-spine uplinks to hidden ellipsis entries");
-  assert(countUplinksFromLeafToSpineEllipsis(summary, 0) === 8, `visible Leaf should draw one hidden Spine representative worth of uplinks: ${countUplinksFromLeafToSpineEllipsis(summary, 0)}`);
+  assert(visibleLeafUplinks.length === result.best.uplinksPerLeaf, `visible Leaf should draw all calculated uplinks: ${visibleLeafUplinks.length}`);
+  assert(countUplinksFromLeafToSpineEllipsis(summary, 0) === 48, `visible Leaf should draw all hidden Spine uplinks: ${countUplinksFromLeafToSpineEllipsis(summary, 0)}`);
   assert(countUplinksFromHiddenLeafToVisibleSpine(summary) > 0, "summary geometry should draw uplinks from hidden Leaf ellipsis entries to visible Spines");
   assert(countUplinksFromHiddenLeafToHiddenSpine(summary) === 0, "summary geometry should not draw hidden Leaf to hidden Spine uplinks");
 }

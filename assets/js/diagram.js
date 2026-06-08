@@ -74,7 +74,7 @@ function makeDiagram({ input, best }) {
     for (let nicIndex = 0; nicIndex < activeNicPorts; nicIndex += 1) {
       const leafIndex = (nicLeafStart + nicIndex) % shownLeafs;
       const nicX = nicPortX(serverX, serverW, input.serverNicPorts, nicIndex);
-      const nodeDevice = `Node #${serverNumber}`;
+      const nodeDevice = `Node ${serverNumber}`;
       const leafDevice = `Leaf ${leafIndex + 1}`;
       lines.push(line(
         nicX,
@@ -93,7 +93,7 @@ function makeDiagram({ input, best }) {
       ));
     }
 
-    nodes.push(serverNode(serverX, serverY, serverW, serverH, serverNumber, input.serverNicPorts, `Node #${serverNumber}`, { device: `Node #${serverNumber}`, deviceKey: `node-${serverIndex}` }));
+    nodes.push(serverNode(serverX, serverY, serverW, serverH, serverNumber, input.serverNicPorts, `Node ${serverNumber}`, { device: `Node ${serverNumber}`, deviceKey: `node-${serverIndex}` }));
   });
 
   return `

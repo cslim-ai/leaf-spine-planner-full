@@ -80,8 +80,8 @@ assertEqual(
   const markup = `
     <svg viewBox="120 80 640 360" data-base-width="1200" data-base-height="800" role="img">
       <style>.is-dimmed{opacity:0.2}.device{fill:#000}</style>
-      <g class="device is-selected" data-device="Node #1"><rect width="10" height="10"/></g>
-      <path class="is-highlighted" data-source="Node #1" data-target="Leaf 1" d="M0 0L10 10"/>
+      <g class="device is-selected" data-device="Node 1"><rect width="10" height="10"/></g>
+      <path class="is-highlighted" data-source="Node 1" data-target="Leaf 1" d="M0 0L10 10"/>
     </svg>
   `;
   const reportSvg = makeReportDiagramSvgFromCurrentMarkup(markup, 300, 200);

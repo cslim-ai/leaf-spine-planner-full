@@ -36,6 +36,7 @@ function buildPortMap({ input, best }) {
 
   for (let serverIndex = 0; serverIndex < input.serverCount; serverIndex += 1) {
     serverFabricGroupIndexes(serverIndex, input, best).forEach((podIndex) => {
+      const fabricIndexes = fabricGroupIndexes(podIndex, input, best);
       const localServerIndex = serverLocalIndex(serverIndex, input, best);
       for (let nicIndex = 0; nicIndex < activeNicPorts; nicIndex += 1) {
         const leafIndex = podCount > 1
@@ -45,6 +46,8 @@ function buildPortMap({ input, best }) {
         leafServerPortCounters[leafIndex] += 1;
         serverLeafRows.push({
           podIndex,
+          podColorIndex: fabricIndexes.pod,
+          planeColorIndex: fabricIndexes.plane,
           pod: fabricGroupPodLabel(podIndex, input, best),
           plane: fabricGroupPlaneLabel(podIndex, input, best),
           section: "Node-Leaf",
@@ -61,6 +64,7 @@ function buildPortMap({ input, best }) {
 
   for (let leafIndex = 0; leafIndex < best.leafCount; leafIndex += 1) {
     const podIndex = input.useMultiPlanar ? Math.floor(leafIndex / perPodLeafs) : 0;
+    const fabricIndexes = fabricGroupIndexes(podIndex, input, best);
     const leafUplinkStart = best.downlinks + 1;
     for (let localSpineIndex = 0; localSpineIndex < perPodSpines; localSpineIndex += 1) {
       const spineIndex = podIndex * perPodSpines + localSpineIndex;
@@ -71,6 +75,8 @@ function buildPortMap({ input, best }) {
         spinePortCounters[spineIndex] += 1;
         leafSpineRows.push({
           podIndex,
+          podColorIndex: fabricIndexes.pod,
+          planeColorIndex: fabricIndexes.plane,
           pod: fabricGroupPodLabel(podIndex, input, best),
           plane: fabricGroupPlaneLabel(podIndex, input, best),
           section: "Leaf-Spine",
@@ -113,16 +119,18 @@ function switchPortLabel(logicalPortIndex, twinFactor) {
 
 function podLabel(podIndex, podCount, input = null, best = null) {
   if (podCount <= 1) return "-";
-  return fabricGroupLabel(podIndex, input, best);
+  return fabricGroupLabel(podIndex, input, best) || "-";
 }
 
 function leafLabel(leafIndex, perPodLeafs, podCount, input = null, best = null) {
-  if (podCount > 1) return `${fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best)} Leaf ${(leafIndex % perPodLeafs) + 1}`;
+  const groupLabel = podCount > 1 ? fabricGroupLabel(Math.floor(leafIndex / perPodLeafs), input, best) : "";
+  if (groupLabel) return `${groupLabel} Leaf ${(leafIndex % perPodLeafs) + 1}`;
   return `Leaf ${leafIndex + 1}`;
 }
 
 function spineLabel(spineIndex, perPodSpines, podCount, input = null, best = null) {
-  if (podCount > 1) return `${fabricGroupLabel(Math.floor(spineIndex / perPodSpines), input, best)} Spine ${(spineIndex % perPodSpines) + 1}`;
+  const groupLabel = podCount > 1 ? fabricGroupLabel(Math.floor(spineIndex / perPodSpines), input, best) : "";
+  if (groupLabel) return `${groupLabel} Spine ${(spineIndex % perPodSpines) + 1}`;
   return `Spine ${spineIndex + 1}`;
 }
 
@@ -131,11 +139,11 @@ function fabricGroupLabel(groupIndex, input = null, best = null) {
   const sourceBest = best || currentResult?.best || {};
   const planeCount = sourceBest.planeCount || (sourceInput.useMultiPlanar ? 2 : 1);
   if (sourceInput.useMultiPods && sourceInput.useMultiPlanar) {
-    return `Pod ${Math.floor(groupIndex / planeCount) + 1} Plane ${(groupIndex % planeCount) + 1}`;
+    return `Pod ${Math.floor(groupIndex / planeCount) + 1} - Plane ${(groupIndex % planeCount) + 1}`;
   }
   if (sourceInput.useMultiPods) return `Pod ${groupIndex + 1}`;
   if (sourceInput.useMultiPlanar) return `Plane ${groupIndex + 1}`;
-  return `Group ${groupIndex + 1}`;
+  return "";
 }
 
 function fabricGroupPodLabel(groupIndex, input = null, best = null) {
@@ -152,6 +160,16 @@ function fabricGroupPlaneLabel(groupIndex, input = null, best = null) {
   if (!sourceInput.useMultiPlanar) return "-";
   const planeCount = sourceBest.planeCount || (sourceInput.useMultiPlanar ? 2 : 1);
   return `Plane ${(groupIndex % planeCount) + 1}`;
+}
+
+function fabricGroupIndexes(groupIndex, input = null, best = null) {
+  const sourceInput = input || currentResult?.input || {};
+  const sourceBest = best || currentResult?.best || {};
+  const planeCount = sourceBest.planeCount || (sourceInput.useMultiPlanar ? 2 : 1);
+  return {
+    pod: sourceInput.useMultiPods ? Math.floor(groupIndex / planeCount) : 0,
+    plane: sourceInput.useMultiPlanar ? groupIndex % planeCount : 0,
+  };
 }
 
 function serverFabricGroupIndexes(serverIndex, input, best) {
@@ -350,7 +368,9 @@ function makePortMapHtml(portMap) {
         padding: 9px 10px;
         border-bottom: 1px solid #e2e8f0;
         white-space: nowrap;
-        font-size: 14px;
+      }
+      td {
+        font-size: 13px;
       }
       tbody tr:nth-child(even) td { background: #f8fbff; }
       tbody tr:hover td { background: #eff6ff; }
@@ -395,8 +415,8 @@ function makePortMapHtml(portMap) {
             <tr>
               <th>#</th>
               <th>${escapeXml(tr("portMap.columns.segment"))}</th>
-              <th>${escapeXml(tr("portMap.columns.plane"))}</th>
               <th>${escapeXml(tr("common.pod"))}</th>
+              <th>${escapeXml(tr("portMap.columns.plane"))}</th>
               <th>${escapeXml(tr("portMap.columns.fromDevice"))}</th>
               <th>${escapeXml(tr("portMap.columns.fromPort"))}</th>
               <th>${escapeXml(tr("portMap.columns.toDevice"))}</th>
@@ -423,6 +443,12 @@ function makePortMapHtml(portMap) {
         { text: "#be123c", bg: "#fff1f2" },
         { text: "#0e7490", bg: "#ecfeff" },
       ];
+      const planeTones = [
+        { text: "#0f766e", bg: "#ccfbf1" },
+        { text: "#7e22ce", bg: "#f3e8ff" },
+        { text: "#b45309", bg: "#fef3c7" },
+        { text: "#be123c", bg: "#ffe4e6" },
+      ];
       function sectionClass(section) {
         if (section === "Node-Leaf") return "section-server-leaf";
         if (section === "Leaf-Spine") return "section-leaf-spine";
@@ -442,11 +468,12 @@ function makePortMapHtml(portMap) {
         for (let index = start; index < end; index += 1) {
           const row = visibleRows[index];
           const tr = document.createElement("tr");
-          const tone = podTones[(row.podIndex || 0) % podTones.length];
+          const podTone = podTones[(row.podColorIndex || 0) % podTones.length];
+          const planeTone = planeTones[(row.planeColorIndex || 0) % planeTones.length];
           appendCell(tr, row.originalIndex + 1);
           appendCell(tr, row.section, "section " + sectionClass(row.section));
-          appendCell(tr, row.plane, "pod-cell", row.plane === "-" ? "" : "color:" + tone.text + "; background:" + tone.bg + ";");
-          appendCell(tr, row.pod, "pod-cell", row.pod === "-" ? "" : "color:" + tone.text + "; background:" + tone.bg + ";");
+          appendCell(tr, row.pod, "pod-cell", row.pod === "-" ? "" : "color:" + podTone.text + "; background:" + podTone.bg + ";");
+          appendCell(tr, row.plane, "pod-cell", row.plane === "-" ? "" : "color:" + planeTone.text + "; background:" + planeTone.bg + ";");
           appendCell(tr, row.sourceDevice);
           appendCell(tr, row.sourcePort);
           appendCell(tr, row.targetDevice);
@@ -515,7 +542,7 @@ function portMapSectionClass(section) {
 
 function portMapPodStyle(row) {
   if (row.pod === "-") return "";
-  const tone = podTone(row.podIndex || 0);
+  const tone = podTone(row.podColorIndex || 0);
   return `color:${tone.text}; background:${tone.bg};`;
 }
 
@@ -527,6 +554,16 @@ function podTone(index) {
     { text: "#6d28d9", bg: "#f5f3ff", ppt: "6D28D9", fill: "F5F3FF" },
     { text: "#be123c", bg: "#fff1f2", ppt: "BE123C", fill: "FFF1F2" },
     { text: "#0e7490", bg: "#ecfeff", ppt: "0E7490", fill: "ECFEFF" },
+  ];
+  return tones[index % tones.length];
+}
+
+function planeTone(index) {
+  const tones = [
+    { text: "#0f766e", bg: "#ccfbf1", ppt: "0F766E", fill: "CCFBF1" },
+    { text: "#7e22ce", bg: "#f3e8ff", ppt: "7E22CE", fill: "F3E8FF" },
+    { text: "#b45309", bg: "#fef3c7", ppt: "B45309", fill: "FEF3C7" },
+    { text: "#be123c", bg: "#ffe4e6", ppt: "BE123C", fill: "FFE4E6" },
   ];
   return tones[index % tones.length];
 }
