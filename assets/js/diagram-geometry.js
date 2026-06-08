@@ -11,6 +11,8 @@ const GEOMETRY_DIAGRAM_LABEL_GUTTER = typeof DIAGRAM_LABEL_GUTTER !== "undefined
 const GEOMETRY_DIAGRAM_CONTENT_OFFSET = typeof DIAGRAM_CONTENT_OFFSET !== "undefined" ? DIAGRAM_CONTENT_OFFSET : 96;
 const GEOMETRY_DEFAULT_DIAGRAM_VIEW_WIDTH = typeof DEFAULT_DIAGRAM_VIEW_WIDTH !== "undefined" ? DEFAULT_DIAGRAM_VIEW_WIDTH : 920;
 const GEOMETRY_SUMMARY_POD_GROUP_GAP_EXTRA = 56;
+const GEOMETRY_SUMMARY_PLANE_GROUP_GAP_EXTRA = 24;
+const GEOMETRY_SUMMARY_HIDDEN_POD_GROUP_GAP_EXTRA = 24;
 const GEOMETRY_FALLBACK_NIC_COLORS = [
   "#2563eb",
   "#16a34a",
@@ -311,10 +313,13 @@ function getSummaryDiagramGeometry({ input, best }) {
   const switchSlotWidth = Math.max(92, switchW + 18);
   const serverSlotWidth = Math.max(96, serverW + 16);
   const podGroupGapExtra = input.useMultiPods ? GEOMETRY_SUMMARY_POD_GROUP_GAP_EXTRA : 0;
+  const planeGroupGapExtra = input.useMultiPlanar ? GEOMETRY_SUMMARY_PLANE_GROUP_GAP_EXTRA : 0;
+  const hiddenPodGroupGapExtra = input.useMultiPods && !input.useMultiPlanar ? GEOMETRY_SUMMARY_HIDDEN_POD_GROUP_GAP_EXTRA : 0;
+  const compactGapOptions = { podGroupGapExtra, planeGroupGapExtra, hiddenPodGroupGapExtra, useMultiPlanar: input.useMultiPlanar, useMultiPods: input.useMultiPods };
   const maxRowWidth = Math.max(
-    compactEntryRowWidth(spineEntries, switchSlotWidth, podGroupGapExtra),
-    compactEntryRowWidth(leafEntries, switchSlotWidth, podGroupGapExtra),
-    compactEntryRowWidth(serverEntries, serverSlotWidth, podGroupGapExtra),
+    compactEntryRowWidth(spineEntries, switchSlotWidth, compactGapOptions),
+    compactEntryRowWidth(leafEntries, switchSlotWidth, compactGapOptions),
+    compactEntryRowWidth(serverEntries, serverSlotWidth, compactGapOptions),
   );
   const width = Math.max(920, labelGutter + maxRowWidth + 150);
   const summaryDensity = Math.max(spineEntries.length, leafEntries.length, serverEntries.length);
@@ -330,9 +335,9 @@ function getSummaryDiagramGeometry({ input, best }) {
   const switches = [];
   const servers = [];
   const ellipsis = [];
-  const spinePositions = placeCompactEntries(spineEntries, center, spineY, switchSlotWidth, podGroupGapExtra);
-  const leafPositions = placeCompactEntries(leafEntries, center, leafY, switchSlotWidth, podGroupGapExtra);
-  const serverPositions = placeCompactEntries(serverEntries, center, serverY, serverSlotWidth, podGroupGapExtra);
+  const spinePositions = placeCompactEntries(spineEntries, center, spineY, switchSlotWidth, compactGapOptions);
+  const leafPositions = placeCompactEntries(leafEntries, center, leafY, switchSlotWidth, compactGapOptions);
+  const serverPositions = placeCompactEntries(serverEntries, center, serverY, serverSlotWidth, compactGapOptions);
   const switchEllipsisW = Math.max(78, switchW);
 
   spineEntries.forEach((entry) => {
@@ -358,7 +363,7 @@ function getSummaryDiagramGeometry({ input, best }) {
   leafEntries.forEach((leafEntry) => {
     const leafPosition = leafPositions.get(leafEntry.key);
     spineEntries.forEach((spineEntry) => {
-      if (leafEntry.type !== "node" && spineEntry.type !== "node") return;
+      if (leafEntry.type !== "node" && spineEntry.type !== "node" && !summaryEntriesCanDrawHiddenUplink(leafEntry, spineEntry)) return;
       if (!summaryEntriesShareFabricGroup(leafEntry, perPodLeafs, spineEntry, perPodSpines)) return;
       const spinePosition = spinePositions.get(spineEntry.key);
       const linkCount = summaryLeafSpineLinkCount(best.uplinksPerLeaf, perPodSpines, spineEntry);
@@ -755,17 +760,18 @@ function summaryEntriesShareFabricGroup(leftEntry, leftPerGroup, rightEntry, rig
   return leftRange.start <= rightRange.end && rightRange.start <= leftRange.end;
 }
 
+function summaryEntriesCanDrawHiddenUplink(leafEntry, spineEntry) {
+  if (leafEntry.type !== "ellipsis" || spineEntry.type !== "ellipsis") return false;
+  if (leafEntry.podEllipsis || spineEntry.podEllipsis) return false;
+  const leafGroup = leafEntry.actualFabricGroupIndex ?? leafEntry.podIndex;
+  const spineGroup = spineEntry.actualFabricGroupIndex ?? spineEntry.podIndex;
+  if (leafGroup === undefined && spineGroup === undefined) return true;
+  return leafGroup !== undefined && leafGroup === spineGroup;
+}
+
 function summaryLeafSpineLinkCount(uplinksPerLeaf, perPodSpines, spineEntry) {
-  if (spineEntry.type !== "ellipsis") {
-    return geometryLinksForSpine(uplinksPerLeaf, perPodSpines, (spineEntry.index ?? 0) % perPodSpines);
-  }
-  const rangeStart = spineEntry.rangeStart ?? spineEntry.index ?? 0;
-  const rangeEnd = spineEntry.rangeEnd ?? rangeStart;
-  let total = 0;
-  for (let spineIndex = rangeStart; spineIndex <= rangeEnd; spineIndex += 1) {
-    total += geometryLinksForSpine(uplinksPerLeaf, perPodSpines, spineIndex % perPodSpines);
-  }
-  return total;
+  const representativeSpineIndex = spineEntry.index ?? spineEntry.rangeStart ?? 0;
+  return geometryLinksForSpine(uplinksPerLeaf, perPodSpines, representativeSpineIndex % perPodSpines);
 }
 
 function summaryEntryFabricGroupRange(entry, perGroup) {
@@ -802,24 +808,24 @@ function summarySwitchEntryLimit(best, podCount) {
   return { spine: 7, leaf: 9 };
 }
 
-function placeCompactEntries(entries, center, y, gap, podGroupGapExtra = 0) {
+function placeCompactEntries(entries, center, y, gap, gapOptions = {}) {
   const positions = new Map();
-  const xs = distributeCompactEntries(center, entries, gap, podGroupGapExtra);
+  const xs = distributeCompactEntries(center, entries, gap, gapOptions);
   entries.forEach((entry, index) => {
     positions.set(entry.key, { x: xs[index], y });
   });
   return positions;
 }
 
-function compactEntryRowWidth(entries, gap, podGroupGapExtra = 0) {
+function compactEntryRowWidth(entries, gap, gapOptions = {}) {
   if (entries.length <= 1) return gap;
-  return gap * entries.length + compactEntryPodBoundaryCount(entries) * podGroupGapExtra;
+  return gap * entries.length + compactEntryBoundaryExtraWidth(entries, gapOptions);
 }
 
-function distributeCompactEntries(center, entries, gap, podGroupGapExtra = 0) {
+function distributeCompactEntries(center, entries, gap, gapOptions = {}) {
   if (entries.length === 1) return [center];
   const stepWidths = entries.slice(1).map((entry, index) => (
-    gap + compactEntriesCrossPodBoundary(entries[index], entry) * podGroupGapExtra
+    gap + compactEntryBoundaryExtra(entries[index], entry, gapOptions)
   ));
   const totalWidth = stepWidths.reduce((sum, step) => sum + step, 0);
   let x = center - totalWidth / 2;
@@ -831,8 +837,20 @@ function distributeCompactEntries(center, entries, gap, podGroupGapExtra = 0) {
   return xs;
 }
 
-function compactEntryPodBoundaryCount(entries) {
-  return entries.slice(1).reduce((count, entry, index) => count + compactEntriesCrossPodBoundary(entries[index], entry), 0);
+function compactEntryBoundaryExtraWidth(entries, gapOptions = {}) {
+  return entries.slice(1).reduce((width, entry, index) => width + compactEntryBoundaryExtra(entries[index], entry, gapOptions), 0);
+}
+
+function compactEntryBoundaryExtra(left, right, gapOptions = {}) {
+  if (compactEntriesTouchHiddenPodBoundary(left, right)) return gapOptions.hiddenPodGroupGapExtra || gapOptions.podGroupGapExtra || 0;
+  if (gapOptions.useMultiPlanar && !gapOptions.useMultiPods && compactEntriesCrossPlaneBoundary(left, right, gapOptions)) return gapOptions.planeGroupGapExtra || 0;
+  if (compactEntriesCrossPodBoundary(left, right)) return gapOptions.podGroupGapExtra || 0;
+  if (compactEntriesCrossPlaneBoundary(left, right, gapOptions)) return gapOptions.planeGroupGapExtra || 0;
+  return 0;
+}
+
+function compactEntriesTouchHiddenPodBoundary(left, right) {
+  return Boolean(left.podEllipsis || right.podEllipsis) && Boolean(compactEntriesCrossPodBoundary(left, right));
 }
 
 function compactEntriesCrossPodBoundary(left, right) {
@@ -841,9 +859,32 @@ function compactEntriesCrossPodBoundary(left, right) {
   return leftPod !== undefined && rightPod !== undefined && leftPod !== rightPod ? 1 : 0;
 }
 
+function compactEntriesCrossPlaneBoundary(left, right, gapOptions = {}) {
+  const leftPod = compactEntryPodGroup(left);
+  const rightPod = compactEntryPodGroup(right);
+  const leftPlane = compactEntryFabricGroup(left);
+  const rightPlane = compactEntryFabricGroup(right);
+  if (gapOptions.useMultiPlanar && !gapOptions.useMultiPods) {
+    return leftPlane !== undefined && rightPlane !== undefined && leftPlane !== rightPlane ? 1 : 0;
+  }
+  return leftPod !== undefined
+    && rightPod !== undefined
+    && leftPod === rightPod
+    && leftPlane !== undefined
+    && rightPlane !== undefined
+    && leftPlane !== rightPlane
+    ? 1
+    : 0;
+}
+
 function compactEntryPodGroup(entry) {
   if (entry.actualPodIndex !== undefined) return entry.actualPodIndex;
   if (entry.rangePodStart !== undefined) return entry.rangePodStart;
+  return entry.podIndex;
+}
+
+function compactEntryFabricGroup(entry) {
+  if (entry.actualFabricGroupIndex !== undefined) return entry.actualFabricGroupIndex;
   return entry.podIndex;
 }
 

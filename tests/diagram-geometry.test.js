@@ -71,6 +71,28 @@ function multiPodGeometry(viewFactory = getDiagramGeometry) {
   return viewFactory({ input, best });
 }
 
+function multiPodSummaryWithHiddenPod() {
+  return getSummaryDiagramGeometry({
+    input: {
+      serverCount: 96,
+      serverNicPorts: 2,
+      useMultiPods: true,
+      useMultiPlanar: false,
+      podServerCount: 16,
+    },
+    best: {
+      spines: 12,
+      leafCount: 12,
+      perPodSpines: 2,
+      perPodLeafs: 2,
+      podCount: 6,
+      multiPodCount: 6,
+      podServerCount: 16,
+      uplinksPerLeaf: 2,
+    },
+  });
+}
+
 function multiPlanarPodGeometry(viewFactory = getDiagramGeometry) {
   const input = {
     serverCount: 32,
@@ -112,6 +134,22 @@ function multiPlanarGeometry(viewFactory = getDiagramGeometry) {
     uplinksPerLeaf: 2,
   };
   return viewFactory({ input, best });
+}
+
+function summaryGeometryWithHiddenLeafAndSpine() {
+  return getSummaryDiagramGeometry({
+    input: {
+      serverCount: 64,
+      serverNicPorts: 4,
+      useMultiPods: false,
+      useMultiPlanar: false,
+    },
+    best: {
+      spines: 16,
+      leafCount: 16,
+      uplinksPerLeaf: 4,
+    },
+  });
 }
 
 function assertRatioNear(geometry, targetRatio, label) {
@@ -192,6 +230,10 @@ function countUplinksFromHiddenLeafToHiddenSpine(geometry) {
 }
 
 function centerGap(left, right) {
+  return right.x - left.x;
+}
+
+function horizontalGap(left, right) {
   return right.x - left.x;
 }
 
@@ -321,15 +363,48 @@ function centerGap(left, right) {
     },
   });
   const visibleLeafUplinks = geometry.lines.filter((line) => line.kind === "uplink" && line.sourceKey === "leaf-0");
-  assert(visibleLeafUplinks.length === 4, `summary visible Leaf should keep all 4 uplinks including hidden Spines: ${visibleLeafUplinks.length}`);
+  assert(visibleLeafUplinks.length === 3, `summary visible Leaf should draw representative hidden Spine uplinks: ${visibleLeafUplinks.length}`);
+  assert(countUplinksFromLeafToSpineEllipsis(geometry, 0) === 1, `summary visible Leaf should draw one hidden Spine representative link: ${countUplinksFromLeafToSpineEllipsis(geometry, 0)}`);
 }
 
 {
   const geometry = multiPlanarPodGeometry(getSummaryDiagramGeometry);
   const spines = geometry.switches.filter((item) => item.kind === "spine").sort((left, right) => left.x - right.x);
-  const pod1PlaneGap = centerGap(spines[0], spines[1]);
+  const samePlaneGap = centerGap(spines[0], spines[1]);
+  const pod1PlaneGap = centerGap(spines[1], spines[2]);
   const podBoundaryGap = centerGap(spines[3], spines[4]);
-  assert(podBoundaryGap >= pod1PlaneGap + 40, `summary Pod boundary gap should be wider than same-Pod gap: same ${pod1PlaneGap}, boundary ${podBoundaryGap}`);
+  assert(pod1PlaneGap >= samePlaneGap + 16, `summary Plane boundary gap should be slightly wider than same-Plane gap: same ${samePlaneGap}, plane ${pod1PlaneGap}`);
+  assert(podBoundaryGap >= pod1PlaneGap + 24, `summary Pod boundary gap should be wider than Plane boundary gap: plane ${pod1PlaneGap}, boundary ${podBoundaryGap}`);
+}
+
+{
+  const geometry = summaryGeometryWithHiddenLeafAndSpine();
+  assert(geometry.ellipsis.some((item) => item.label.includes("Spine\nhidden")), "regular summary geometry should hide middle Spines");
+  assert(geometry.ellipsis.some((item) => item.label.includes("Leaf\nhidden")), "regular summary geometry should hide middle Leafs");
+  assert(countUplinksFromHiddenLeafToHiddenSpine(geometry) === 1, `regular summary geometry should draw representative hidden Leaf to hidden Spine uplinks: ${countUplinksFromHiddenLeafToHiddenSpine(geometry)}`);
+}
+
+{
+  const geometry = multiPlanarGeometry(getSummaryDiagramGeometry);
+  const spines = geometry.switches.filter((item) => item.kind === "spine").sort((left, right) => left.x - right.x);
+  const samePlaneGap = centerGap(spines[0], spines[1]);
+  const planeBoundaryGap = centerGap(spines[1], spines[2]);
+  assert(planeBoundaryGap >= samePlaneGap + 16, `summary multi-planar Plane boundary gap should be wider than same-Plane gap: same ${samePlaneGap}, plane ${planeBoundaryGap}`);
+}
+
+{
+  const hiddenGeometry = multiPodSummaryWithHiddenPod();
+  const hiddenSpineBadge = hiddenGeometry.ellipsis.find((item) => item.label.includes("Pod\nhidden") && item.y < 100);
+  const hiddenSpines = hiddenGeometry.switches.filter((item) => item.kind === "spine").sort((left, right) => left.x - right.x);
+  const samePodGap = horizontalGap(hiddenSpines[0], hiddenSpines[1]);
+  const hiddenPodGap = horizontalGap(hiddenSpines[1], hiddenSpineBadge);
+
+  const visibleGeometry = multiPodGeometry(getSummaryDiagramGeometry);
+  const visibleSpines = visibleGeometry.switches.filter((item) => item.kind === "spine").sort((left, right) => left.x - right.x);
+  const visiblePodBoundaryGap = horizontalGap(visibleSpines[1], visibleSpines[2]);
+
+  assert(hiddenPodGap >= samePodGap + 16, `summary hidden Pod gap should still separate from same-Pod devices: same ${samePodGap}, hidden ${hiddenPodGap}`);
+  assert(hiddenPodGap <= visiblePodBoundaryGap - 16, `summary hidden Pod gap should be narrower than visible Pod boundary gap: hidden ${hiddenPodGap}, visible ${visiblePodBoundaryGap}`);
 }
 
 {
@@ -419,10 +494,10 @@ function centerGap(left, right) {
   assert(summary.ellipsis.some((item) => item.label.includes("Spine\nhidden")), "summary geometry should keep Spine hidden entries");
   assert(!summary.ellipsis.some((item) => item.label.includes("links per Leaf")), "summary hidden Spine label should stay compact");
   assert(countUplinksTouchingEllipsis(summary) > 0, "summary geometry should show leaf-spine uplinks to hidden ellipsis entries");
-  assert(visibleLeafUplinks.length === result.best.uplinksPerLeaf, `visible Leaf should draw all calculated uplinks: ${visibleLeafUplinks.length}`);
-  assert(countUplinksFromLeafToSpineEllipsis(summary, 0) === 48, `visible Leaf should draw all hidden Spine uplinks: ${countUplinksFromLeafToSpineEllipsis(summary, 0)}`);
+  assert(visibleLeafUplinks.length === 24, `visible Leaf should draw visible Spine links plus one hidden Spine representative: ${visibleLeafUplinks.length}`);
+  assert(countUplinksFromLeafToSpineEllipsis(summary, 0) === 8, `visible Leaf should draw one hidden Spine representative worth of uplinks: ${countUplinksFromLeafToSpineEllipsis(summary, 0)}`);
   assert(countUplinksFromHiddenLeafToVisibleSpine(summary) > 0, "summary geometry should draw uplinks from hidden Leaf ellipsis entries to visible Spines");
-  assert(countUplinksFromHiddenLeafToHiddenSpine(summary) === 0, "summary geometry should not draw hidden Leaf to hidden Spine uplinks");
+  assert(countUplinksFromHiddenLeafToHiddenSpine(summary) === 32, `summary geometry should draw representative hidden Leaf to hidden Spine uplinks: ${countUplinksFromHiddenLeafToHiddenSpine(summary)}`);
 }
 
 console.log("diagram geometry tests passed");
