@@ -7,6 +7,7 @@
 // This file is loaded before app.js; functions use app globals at call time.
 
 const DIAGRAM_EXPORT_CONTENT_SCALE = 0.8;
+const openDiagramWindows = new Set();
 
 function makeDiagram({ input, best }) {
   const shownSpines = best.spines;
@@ -123,10 +124,15 @@ function makeDiagramFromGeometry(geometry) {
   return `
     <svg viewBox="0 0 ${geometry.width} ${geometry.height}" data-base-width="${geometry.width}" data-base-height="${geometry.height}" role="img">
       <title>Leaf-Spine network topology</title>
+      ${makeDiagramInlineStyleElement()}
       ${lines.join("")}
       ${nodes.join("")}
     </svg>
   `;
+}
+
+function makeDiagramMarkupForView(result, viewMode) {
+  return makeDiagramFromGeometry(diagramGeometryForView(result, viewMode));
 }
 
 async function exportDiagramPng() {
@@ -172,13 +178,55 @@ function exportDiagramSvg() {
   downloadBlob(blob, exportFilename("leaf-spine-topology", "svg"));
 }
 
+function makeDiagramWindowPayload(result) {
+  return {
+    type: "leaf-spine-diagram-update",
+    variants: makeDiagramWindowVariants(result),
+  };
+}
+
+function makeDiagramWindowVariants(result) {
+  return {
+    full: makeWindowSvgDataFromMarkup(makeDiagramMarkupForView(result, "full")),
+    wrapped: makeWindowSvgDataFromMarkup(makeDiagramMarkupForView(result, "wrapped")),
+    summary: makeWindowSvgDataFromMarkup(makeDiagramMarkupForView(result, "summary")),
+  };
+}
+
+function syncOpenDiagramWindows(result = currentResult) {
+  removeClosedDiagramWindows();
+  if (openDiagramWindows.size === 0) return;
+  if (!result) {
+    clearOpenDiagramWindows();
+    return;
+  }
+  postDiagramWindowMessage(makeDiagramWindowPayload(result));
+}
+
+function clearOpenDiagramWindows() {
+  postDiagramWindowMessage({ type: "leaf-spine-diagram-clear" });
+}
+
+function removeClosedDiagramWindows() {
+  openDiagramWindows.forEach((popup) => {
+    if (!popup || popup.closed) openDiagramWindows.delete(popup);
+  });
+}
+
+function postDiagramWindowMessage(message) {
+  removeClosedDiagramWindows();
+  openDiagramWindows.forEach((popup) => {
+    try {
+      popup.postMessage(message, "*");
+    } catch (error) {
+      openDiagramWindows.delete(popup);
+    }
+  });
+}
+
 function openDiagramWindow() {
   if (!currentResult) return;
-  const variants = {
-    full: makeExportSvgDataFromMarkup(makeDiagramFromGeometry(getDiagramGeometry(currentResult))),
-    wrapped: makeExportSvgDataFromMarkup(makeDiagramFromGeometry(getPptDiagramGeometry(currentResult))),
-    summary: makeExportSvgDataFromMarkup(makeDiagramFromGeometry(getSummaryDiagramGeometry(currentResult))),
-  };
+  const variants = makeDiagramWindowPayload(currentResult).variants;
   const labels = {
     locale: typeof currentLocale === "string" ? currentLocale : "ko",
     title: typeof tr === "function" ? tr("diagram.title") : "네트워크 구성도",
@@ -205,7 +253,7 @@ function openDiagramWindow() {
       body {
         margin: 0;
         min-height: 100vh;
-        background: #eef5ff;
+        background: #fff;
         font-family: "Pretendard", Arial, sans-serif;
       }
       .toolbar {
@@ -295,14 +343,15 @@ function openDiagramWindow() {
         font-size: 20px;
       }
       .viewer {
-        width: 100vw;
-        height: calc(100vh - 55px);
+        width: calc(100vw - 40px);
+        height: calc(100vh - 75px);
+        margin: 0 20px 20px;
         overflow: hidden;
         cursor: grab;
         user-select: none;
         -webkit-user-select: none;
         touch-action: none;
-        background: #eef5ff;
+        background: #fff;
       }
       .viewer.is-dragging {
         cursor: grabbing;
@@ -314,6 +363,7 @@ function openDiagramWindow() {
         max-width: none;
         background: #fff;
       }
+      ${makeDiagramSvgStyleCss()}
       .export-menu {
         position: relative;
       }
@@ -393,13 +443,14 @@ function openDiagramWindow() {
     </div>
     <div id="viewer" class="viewer"></div>
     <script>
-      const variants = ${JSON.stringify(variants)};
+      let variants = ${JSON.stringify(variants)};
       const labels = ${JSON.stringify(labels)};
       const defaultViewWidth = 920;
       const defaultViewHeight = 500;
-      const fitPadding = 24;
-      const minZoom = 0.1;
-      const maxZoom = 10;
+      const fitPaddingX = 50;
+      const fitPaddingY = 100;
+      const minRenderedScale = 0.15;
+      const maxRenderedScale = 10;
       const zoomStep = 0.05;
       const viewer = document.querySelector("#viewer");
       const zoomReset = document.querySelector("#zoomReset");
@@ -485,12 +536,12 @@ function openDiagramWindow() {
       }
 
       function applyView() {
-        zoomReset.textContent = Math.round(zoom * 100) + "%";
         if (!svg) return;
         const size = viewBoxSize();
         pan.x = clampAxis(pan.x, size.width, baseWidth);
         pan.y = clampAxis(pan.y, size.height, baseHeight);
         svg.setAttribute("viewBox", trim(pan.x) + " " + trim(pan.y) + " " + trim(size.width) + " " + trim(size.height));
+        zoomReset.textContent = Math.round(getRenderedScale() * 100) + "%";
       }
 
       function clientPointToSvg(clientX, clientY) {
@@ -512,7 +563,8 @@ function openDiagramWindow() {
       }
 
       function setZoom(nextZoom, origin) {
-        nextZoom = Math.min(maxZoom, Math.max(minZoom, nextZoom));
+        if (!svg) return;
+        nextZoom = clampZoomForRenderedScale(nextZoom);
         if (origin) {
           const before = clientPointToSvg(origin.x, origin.y);
           zoom = nextZoom;
@@ -526,27 +578,65 @@ function openDiagramWindow() {
       }
 
       function resetView() {
-        zoom = 1;
+        if (!svg) return;
+        zoom = getZoomForRenderedScale(1);
         pan = centeredPan();
         applyView();
       }
 
       function centerView() {
+        if (!svg) return;
         pan = centeredPan();
         applyView();
       }
 
       function fitView() {
-        const viewport = viewportSize();
+        if (!svg) return;
         const bounds = contentBounds();
-        const targetWidth = Math.max(1, bounds.width + fitPadding * 2);
-        zoom = Math.min(maxZoom, Math.max(minZoom, viewport.width / targetWidth));
+        const rect = svg.getBoundingClientRect();
+        const availableWidth = Math.max(1, rect.width - fitPaddingX * 2);
+        const availableHeight = Math.max(1, rect.height - fitPaddingY * 2);
+        const targetScale = Math.min(availableWidth / Math.max(bounds.width, 1), availableHeight / Math.max(bounds.height, 1));
+        zoom = getZoomForRenderedScale(targetScale);
         const size = viewBoxSize();
         pan = {
           x: bounds.x + bounds.width / 2 - size.width / 2,
           y: bounds.y + bounds.height / 2 - size.height / 2,
         };
         applyView();
+      }
+
+      function getRenderedScale() {
+        if (!svg) return zoom;
+        const rect = svg.getBoundingClientRect();
+        const size = viewBoxSize();
+        const scaleX = rect.width / Math.max(size.width, 1);
+        const scaleY = rect.height / Math.max(size.height, 1);
+        const renderedScale = Math.min(scaleX, scaleY);
+        return Number.isFinite(renderedScale) && renderedScale > 0 ? renderedScale : zoom;
+      }
+
+      function getBaseRenderedScale() {
+        if (!svg) return 1;
+        const rect = svg.getBoundingClientRect();
+        const viewport = viewportSize();
+        const baseRenderedScale = Math.min(
+          rect.width / Math.max(viewport.width, 1),
+          rect.height / Math.max(viewport.height, 1),
+        );
+        return Number.isFinite(baseRenderedScale) && baseRenderedScale > 0 ? baseRenderedScale : 1;
+      }
+
+      function getZoomForRenderedScale(targetScale) {
+        const clampedTargetScale = Math.min(maxRenderedScale, Math.max(minRenderedScale, targetScale));
+        return clampedTargetScale / getBaseRenderedScale();
+      }
+
+      function clampZoomForRenderedScale(nextZoom) {
+        const baseRenderedScale = getBaseRenderedScale();
+        const min = minRenderedScale / baseRenderedScale;
+        const max = maxRenderedScale / baseRenderedScale;
+        return Math.min(max, Math.max(min, nextZoom));
       }
 
       function contentBounds() {
@@ -710,6 +800,7 @@ function openDiagramWindow() {
       }
 
       function setViewMode(mode) {
+        if (!variants[mode]) mode = "full";
         viewMode = mode;
         viewer.innerHTML = variants[mode].svg;
         svg = viewer.querySelector("svg");
@@ -722,7 +813,23 @@ function openDiagramWindow() {
         document.querySelector("#viewFull").classList.toggle("is-active", mode === "full");
         document.querySelector("#viewWrapped").classList.toggle("is-active", mode === "wrapped");
         document.querySelector("#viewSummary").classList.toggle("is-active", mode === "summary");
-        resetView();
+        fitView();
+      }
+
+      function updateDiagramVariants(payload) {
+        if (!payload || !payload.variants) return;
+        variants = payload.variants;
+        setViewMode(variants[viewMode] ? viewMode : "full");
+      }
+
+      function clearDiagramVariants() {
+        viewer.innerHTML = "";
+        svg = null;
+        baseWidth = 1;
+        baseHeight = 1;
+        zoom = 1;
+        pan = { x: 0, y: 0 };
+        zoomReset.textContent = "100%";
       }
 
       function downloadBlob(blob, filename) {
@@ -786,9 +893,9 @@ function openDiagramWindow() {
         }
       }
 
-      document.querySelector("#zoomOut").addEventListener("click", () => setZoom(zoom - zoomStep));
+      document.querySelector("#zoomOut").addEventListener("click", () => setZoom(getZoomForRenderedScale(getRenderedScale() - zoomStep)));
       document.querySelector("#zoomReset").addEventListener("click", resetView);
-      document.querySelector("#zoomIn").addEventListener("click", () => setZoom(zoom + zoomStep));
+      document.querySelector("#zoomIn").addEventListener("click", () => setZoom(getZoomForRenderedScale(getRenderedScale() + zoomStep)));
       document.querySelector("#zoomCenter").addEventListener("click", centerView);
       document.querySelector("#zoomFit").addEventListener("click", fitView);
       document.querySelector("#viewFull").addEventListener("click", () => setViewMode("full"));
@@ -863,13 +970,21 @@ function openDiagramWindow() {
       });
       viewer.addEventListener("wheel", (event) => {
         event.preventDefault();
-        setZoom(zoom + (event.deltaY < 0 ? zoomStep : -zoomStep), { x: event.clientX, y: event.clientY });
+        setZoom(getZoomForRenderedScale(getRenderedScale() + (event.deltaY < 0 ? zoomStep : -zoomStep)), { x: event.clientX, y: event.clientY });
       }, { passive: false });
       viewer.addEventListener("click", handleHighlightClick);
       viewer.addEventListener("pointerdown", startDrag);
       window.addEventListener("pointermove", moveDrag);
       window.addEventListener("pointerup", endDrag);
-      window.addEventListener("resize", applyView);
+      window.addEventListener("resize", fitView);
+      window.addEventListener("message", (event) => {
+        if (event.data?.type === "leaf-spine-diagram-update") {
+          updateDiagramVariants(event.data);
+        }
+        if (event.data?.type === "leaf-spine-diagram-clear") {
+          clearDiagramVariants();
+        }
+      });
       setViewMode(viewMode);
     </script>
   </body>
@@ -881,16 +996,21 @@ function openDiagramWindow() {
     URL.revokeObjectURL(url);
     return;
   }
+  openDiagramWindows.add(popup);
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-function makeExportSvgDataFromMarkup(markup) {
+function makeWindowSvgDataFromMarkup(markup) {
   const container = document.createElement("div");
   container.innerHTML = markup;
   const svg = container.querySelector("svg");
-  const { clone, width, height } = makeExportSvgClone(svg);
+  const width = Number(svg.dataset.baseWidth) || Number(svg.getAttribute("width")) || 1200;
+  const height = Number(svg.dataset.baseHeight) || Number(svg.getAttribute("height")) || 700;
+  svg.setAttribute("width", width);
+  svg.setAttribute("height", height);
+  svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   return {
-    svg: new XMLSerializer().serializeToString(clone),
+    svg: new XMLSerializer().serializeToString(svg),
     width,
     height,
   };
@@ -1058,6 +1178,17 @@ function makePngSvgStyleElement() {
       text-rendering: geometricPrecision;
       background: #ffffff;
     }
+    ${makeDiagramSvgStyleCss()}
+  `;
+  return style;
+}
+
+function makeDiagramInlineStyleElement() {
+  return `<style>${makeDiagramSvgStyleCss()}</style>`;
+}
+
+function makeDiagramSvgStyleCss() {
+  return `
     .hint text { fill: #5b6b86; font-weight: 900; font-size: 14px; }
     .link, .uplink { vector-effect: non-scaling-stroke; }
     .link { stroke-width: 1.35; }
@@ -1080,5 +1211,4 @@ function makePngSvgStyleElement() {
     .ellipsis-node text { fill: #334155; font-size: 19px; }
     .ellipsis-node .ellipsis-label { fill: #0f172a; font-size: 10px; font-weight: 450; }
   `;
-  return style;
 }

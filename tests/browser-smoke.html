@@ -134,6 +134,17 @@
         );
         assert(currentResult && currentResult.feasible, "default calculation is feasible");
         assert(document.querySelector("#diagram svg"), "diagram SVG rendered");
+        assert(document.querySelector("#diagram svg style")?.textContent.includes(".leaf .switch-body"), "main diagram embeds shared topology styles");
+        assert(typeof LeafSpineDiagram.makeWindowPayload === "function", "diagram window sync payload API is available");
+        const diagramWindowPayload = LeafSpineDiagram.makeWindowPayload(currentResult);
+        assert(
+          ["full", "wrapped", "summary"].every((mode) => diagramWindowPayload.variants[mode]?.svg.includes("<svg")),
+          "diagram window sync payload includes every diagram view"
+        );
+        assert(
+          ["full", "wrapped", "summary"].every((mode) => diagramWindowPayload.variants[mode]?.svg.includes(".leaf .switch-body")),
+          "diagram window payload includes shared topology styles"
+        );
 
         const reportSvg = await LeafSpineReport.makeSvg("2026-05-30 00:00:00");
         assert(reportSvg.includes('width="1320"') && reportSvg.includes('height="1867"'), "report SVG keeps A4 portrait ratio");

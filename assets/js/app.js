@@ -617,6 +617,7 @@ function render(result) {
     outputs.diagram.innerHTML = "";
     outputs.diagramCaption.textContent = "";
     resetDiagramView();
+    LeafSpineDiagram.clearOpenWindows();
     return;
   }
 
@@ -721,6 +722,7 @@ function render(result) {
   fitDiagramView();
   updateDiagramViewButtons();
   outputs.diagramCaption.textContent = "";
+  LeafSpineDiagram.syncOpenWindows(currentResult);
 }
 
 function updateBodyScrollbarCompensation() {

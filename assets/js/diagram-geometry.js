@@ -363,7 +363,7 @@ function getSummaryDiagramGeometry({ input, best }) {
   leafEntries.forEach((leafEntry) => {
     const leafPosition = leafPositions.get(leafEntry.key);
     spineEntries.forEach((spineEntry) => {
-      if (leafEntry.type !== "node" && spineEntry.type !== "node" && !summaryEntriesCanDrawHiddenUplink(leafEntry, spineEntry)) return;
+      if (leafEntry.type !== "node" || spineEntry.type !== "node") return;
       if (!summaryEntriesShareFabricGroup(leafEntry, perPodLeafs, spineEntry, perPodSpines)) return;
       const spinePosition = spinePositions.get(spineEntry.key);
       const linkCount = summaryLeafSpineLinkCount(best.uplinksPerLeaf, perPodSpines, spineEntry);
@@ -760,15 +760,6 @@ function summaryEntriesShareFabricGroup(leftEntry, leftPerGroup, rightEntry, rig
   return leftRange.start <= rightRange.end && rightRange.start <= leftRange.end;
 }
 
-function summaryEntriesCanDrawHiddenUplink(leafEntry, spineEntry) {
-  if (leafEntry.type !== "ellipsis" || spineEntry.type !== "ellipsis") return false;
-  if (leafEntry.podEllipsis || spineEntry.podEllipsis) return false;
-  const leafGroup = leafEntry.actualFabricGroupIndex ?? leafEntry.podIndex;
-  const spineGroup = spineEntry.actualFabricGroupIndex ?? spineEntry.podIndex;
-  if (leafGroup === undefined && spineGroup === undefined) return true;
-  return leafGroup !== undefined && leafGroup === spineGroup;
-}
-
 function summaryLeafSpineLinkCount(uplinksPerLeaf, perPodSpines, spineEntry) {
   const representativeSpineIndex = spineEntry.index ?? spineEntry.rangeStart ?? 0;
   return geometryLinksForSpine(uplinksPerLeaf, perPodSpines, representativeSpineIndex % perPodSpines);
@@ -923,7 +914,7 @@ function rowExtent(xs) {
   return Math.max(...xs) - Math.min(...xs);
 }
 
-function fullDiagramLayerGaps(serverRowWidth, serverW, spineY, serverH, targetRatio = 0.325) {
+function fullDiagramLayerGaps(serverRowWidth, serverW, spineY, serverH, targetRatio = 0.25) {
   const minSpineLeafGap = 132;
   const minLeafServerGap = 170;
   const estimatedWidth = Math.max(1, Math.ceil(serverRowWidth + serverW));

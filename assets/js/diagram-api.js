@@ -5,7 +5,7 @@
 
 // Public diagram facade. Loaded after diagram implementation files.
 const LeafSpineDiagram = {
-  makeForView: (result, viewMode) => makeDiagramFromGeometry(diagramGeometryForView(result, viewMode)),
+  makeForView: makeDiagramMarkupForView,
   getGeometryForView: (result, viewMode) => diagramGeometryForView(result, viewMode),
   adjustLabelBadges,
   exportPng: async () => {
@@ -21,4 +21,7 @@ const LeafSpineDiagram = {
     return exportDiagramPptx(viewMode);
   },
   openWindow: openDiagramWindow,
+  makeWindowPayload: makeDiagramWindowPayload,
+  syncOpenWindows: syncOpenDiagramWindows,
+  clearOpenWindows: clearOpenDiagramWindows,
 };
